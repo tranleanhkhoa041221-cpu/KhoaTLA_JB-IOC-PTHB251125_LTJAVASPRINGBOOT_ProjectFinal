@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Setter
 @Entity
 @Table(name = "assessment_results", uniqueConstraints = @UniqueConstraint(
-                columnNames = {"assignment_id", "round_id", "criterion_id"}))
+        columnNames = {"assignment_id", "round_id", "criterion_id"}))
 public class AssessmentResult {
 
     @Id
@@ -41,6 +41,7 @@ public class AssessmentResult {
     @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal score;
 
+    @Column(columnDefinition = "TEXT")
     private String comments;
 
     private LocalDateTime evaluationDate = LocalDateTime.now();

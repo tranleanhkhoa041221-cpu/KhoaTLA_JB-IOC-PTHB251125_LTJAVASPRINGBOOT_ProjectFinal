@@ -6,13 +6,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import ra.edu.entity.Student;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 
 public interface StudentRepository extends JpaRepository<Student, Long> {
 
-    boolean existsByStudentCode(String studentCode);
+    boolean existsByStudentCodeIgnoreCase(String studentCode);
 
     boolean existsByUser_UserId(Long userId);
+
+    Optional<Student> findByUser_UserId(Long userId);
 
     Page<Student> findAllByMajorContainingIgnoreCase(String major, Pageable pageable);
 
@@ -57,76 +60,75 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     );
 
 
-
-    Page<Student> findAllByAssignments_Mentor_MentorIdAndStudentCodeContainingIgnoreCase(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorIdAndStudentCodeContainingIgnoreCase(
             Long mentorId,
             String studentCode,
             Pageable pageable
     );
 
-    Page<Student> findAllByAssignments_Mentor_MentorIdAndAddressContainingIgnoreCase(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorIdAndAddressContainingIgnoreCase(
             Long mentorId,
             String address,
             Pageable pageable
     );
 
-    Page<Student> findAllByAssignments_Mentor_MentorIdAndDateOfBirth(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorIdAndDateOfBirth(
             Long mentorId,
             LocalDate dateOfBirth,
             Pageable pageable
     );
 
 
-    Page<Student> findAllByAssignments_Mentor_MentorIdAndUser_UsernameContainingIgnoreCase(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorIdAndUser_UsernameContainingIgnoreCase(
             Long mentorId,
             String username,
             Pageable pageable
     );
 
-    Page<Student> findAllByAssignments_Mentor_MentorIdAndUser_FullNameContainingIgnoreCase(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorIdAndUser_FullNameContainingIgnoreCase(
             Long mentorId,
             String fullName,
             Pageable pageable
     );
 
-    Page<Student> findAllByAssignments_Mentor_MentorIdAndUser_EmailContainingIgnoreCase(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorIdAndUser_EmailContainingIgnoreCase(
             Long mentorId,
             String email,
             Pageable pageable
     );
 
-    Page<Student> findAllByAssignments_Mentor_MentorIdAndUser_PhoneNumberContainingIgnoreCase(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorIdAndUser_PhoneNumberContainingIgnoreCase(
             Long mentorId,
             String phoneNumber,
             Pageable pageable
     );
 
 
-    Page<Student> findAllByAssignments_Mentor_MentorId(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorId(
             Long mentorId,
             Pageable pageable
     );
 
-    Page<Student> findAllByAssignments_Mentor_MentorIdAndMajorContainingIgnoreCase(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorIdAndMajorContainingIgnoreCase(
             Long mentorId,
             String major,
             Pageable pageable
     );
 
-    Page<Student> findAllByAssignments_Mentor_MentorIdAndClassNameContainingIgnoreCase(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorIdAndClassNameContainingIgnoreCase(
             Long mentorId,
             String className,
             Pageable pageable
     );
 
-    Page<Student> findAllByAssignments_Mentor_MentorIdAndMajorContainingIgnoreCaseAndClassNameContainingIgnoreCase(
+    Page<Student> findAllByInternshipAssignments_Mentor_MentorIdAndMajorContainingIgnoreCaseAndClassNameContainingIgnoreCase(
             Long mentorId,
             String major,
             String className,
             Pageable pageable
     );
 
-    boolean existsByAssignments_Mentor_MentorIdAndStudentId(
+    boolean existsByInternshipAssignments_Mentor_MentorIdAndStudentId(
             Long mentorId,
             Long studentId
     );

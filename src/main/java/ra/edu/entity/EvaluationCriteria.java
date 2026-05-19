@@ -25,6 +25,7 @@ public class EvaluationCriteria {
     @Column(unique = true, nullable = false, length = 200)
     private String criterionName;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     @Column(nullable = false, precision = 5, scale = 2)

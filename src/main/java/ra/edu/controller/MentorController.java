@@ -26,20 +26,19 @@ public class MentorController {
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String phoneNumber,
             @RequestParam(required = false) String department,
-            @RequestParam(required = false) String academicRank
-    ) {
+            @RequestParam(required = false) String academicRank) {
+
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy danh sách mentor thành công",
-                        mentorService.getAllMentors(page, size, username, fullName, email, phoneNumber, department, academicRank))
-        );
+                        mentorService.getAllMentors(page, size, username, fullName, email, phoneNumber, department, academicRank)));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<?>> getById(@PathVariable Long id) {
+
         return ResponseEntity.ok(
-                ApiResponse.success("Lấy thông tin mentor thành công",
-                        mentorService.getMentorById(id))
-        );
+                ApiResponse.success("Lấy thông tin chi tiết mentor thành công",
+                        mentorService.getMentorById(id)));
     }
 
     @GetMapping("/assigned")
@@ -51,26 +50,25 @@ public class MentorController {
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String phoneNumber,
             @RequestParam(required = false) String department,
-            @RequestParam(required = false) String academicRank
-    ) {
+            @RequestParam(required = false) String academicRank) {
+
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy danh sách mentor được phân công thành công",
-                        mentorService.getAssignedMentors(page, size,username, fullName, email, phoneNumber, department, academicRank))
-        );
+                        mentorService.getAssignedMentors(page, size, username, fullName, email, phoneNumber, department, academicRank)));
     }
 
     @GetMapping("/assigned/{id}")
     public ResponseEntity<ApiResponse<?>> getAssignedById(@PathVariable Long id) {
+
         return ResponseEntity.ok(
-                ApiResponse.success("Lấy thông tin mentor được phân công thành công",
-                        mentorService.getAssignedMentorById(id))
-        );
+                ApiResponse.success("Lấy thông tin chi tiết mentor được phân công thành công",
+                        mentorService.getAssignedMentorById(id)));
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<?>> create(
-            @Valid @RequestBody MentorCreateRequest request
-    ) {
+            @Valid @RequestBody MentorCreateRequest request) {
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created("Tạo mentor thành công",
                         mentorService.createMentor(request)));
@@ -79,11 +77,10 @@ public class MentorController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<?>> update(
             @PathVariable Long id,
-            @Valid @RequestBody MentorUpdateRequest request
-    ) {
+            @Valid @RequestBody MentorUpdateRequest request) {
+
         return ResponseEntity.ok(
                 ApiResponse.success("Cập nhật mentor thành công",
-                        mentorService.updateMentor(id, request))
-        );
+                        mentorService.updateMentor(id, request)));
     }
 }

@@ -12,7 +12,7 @@ import java.util.List;
 @Getter
 @Setter
 @Builder
-public class ApiResponse<T>{
+public class ApiResponse<T> {
 
     private boolean success;
 

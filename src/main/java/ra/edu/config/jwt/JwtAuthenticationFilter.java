@@ -47,17 +47,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             request.setAttribute("jwt_exception", e);
         }
         // cho request i tới các filter tiếp theop
-        filterChain.doFilter(request,response);
+        filterChain.doFilter(request, response);
     }
 
     private String getTokenFromRequest(HttpServletRequest request) {
         String authorization = request.getHeader("Authorization");
-        if (authorization!=null && authorization.startsWith("Bearer ")) {
+        if (authorization != null && authorization.startsWith("Bearer ")) {
             // lấy token , cắt t Bearer đi
             return authorization.substring(7);
         }
         return null; // ko có token
     }
 
-    }
+}
 

@@ -20,5 +20,6 @@ public class InternshipPhaseUpdateRequest {
     @JsonFormat(pattern = "dd/MM/yyyy")
     private LocalDate endDate;
 
+    @Size(max = 4000, message = "Mô tả chi tiết về giai đoạn tối đa 4000 ký tự")
     private String description;
 }

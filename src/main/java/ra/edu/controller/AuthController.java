@@ -13,22 +13,24 @@ import ra.edu.service.AuthService;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
+
     private final AuthService authService;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<?>> login(@Valid @RequestBody LoginRequest request) {
+
         return ResponseEntity.ok(
-                ApiResponse.success("Login successfully", authService.login(request))
-        );
+                ApiResponse.success(
+                        "Login successfully",
+                        authService.login(request)));
     }
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<?>> me(Authentication auth) {
+
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Get current user successfully",
-                        authService.getCurrentUser(auth)
-                )
-        );
+                        authService.getCurrentUser(auth)));
     }
 }

@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "round_criteria",
-     uniqueConstraints = @UniqueConstraint(columnNames = {"round_id", "criterion_id"}))
+@Table(name = "round_criteria", uniqueConstraints = @UniqueConstraint
+        (columnNames = {"round_id", "criterion_id"}))
 public class RoundCriteria {
 
     @Id

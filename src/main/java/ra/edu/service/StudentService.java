@@ -22,7 +22,6 @@ public interface StudentService {
              String major,
              String className);
 
-
     StudentResponse getStudentById(Long id);
 
     StudentResponse createStudent(StudentCreateRequest request);

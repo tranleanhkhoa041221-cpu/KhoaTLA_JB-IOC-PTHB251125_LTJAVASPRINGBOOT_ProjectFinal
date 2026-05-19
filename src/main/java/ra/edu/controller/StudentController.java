@@ -1,6 +1,5 @@
 package ra.edu.controller;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -18,6 +17,7 @@ import java.time.LocalDate;
 @RequestMapping("/api/students")
 @RequiredArgsConstructor
 public class StudentController {
+
     private final StudentService studentService;
 
     @GetMapping
@@ -30,28 +30,27 @@ public class StudentController {
             @RequestParam(required = false) String username,
             @RequestParam(required = false) String fullName,
             @RequestParam(required = false) String email,
-            @RequestParam(required = false)String phoneNumber,
+            @RequestParam(required = false) String phoneNumber,
             @RequestParam(required = false) String major,
-            @RequestParam(required = false) String className
-    ) {
+            @RequestParam(required = false) String className) {
+
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy danh sách sinh viên thành công",
-                        studentService.getAllStudents(page, size, studentCode, address, dateOfBirth, username , fullName, email, phoneNumber, major, className))
-        );
+                        studentService.getAllStudents(page, size, studentCode, address, dateOfBirth, username, fullName, email, phoneNumber, major, className)));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<?>> getById(@PathVariable Long id) {
+
         return ResponseEntity.ok(
-                ApiResponse.success("Lấy thông tin sinh viên thành công",
-                        studentService.getStudentById(id))
-        );
+                ApiResponse.success("Lấy thông tin chi tiết sinh viên thành công",
+                        studentService.getStudentById(id)));
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<?>> create(
-            @Valid @RequestBody StudentCreateRequest request
-    ) {
+            @Valid @RequestBody StudentCreateRequest request) {
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created("Tạo sinh viên thành công",
                         studentService.createStudent(request)));
@@ -60,11 +59,10 @@ public class StudentController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<?>> update(
             @PathVariable Long id,
-            @Valid @RequestBody StudentUpdateRequest request
-    ) {
+            @Valid @RequestBody StudentUpdateRequest request) {
+
         return ResponseEntity.ok(
                 ApiResponse.success("Cập nhật sinh viên thành công",
-                        studentService.updateStudent(id, request))
-        );
+                        studentService.updateStudent(id, request)));
     }
 }

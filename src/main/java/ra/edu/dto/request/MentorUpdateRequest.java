@@ -7,6 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class MentorUpdateRequest {
+
     @Size(max = 100, message = "Bộ môn/Khoa tối đa 100 ký tự")
     private String department;
 

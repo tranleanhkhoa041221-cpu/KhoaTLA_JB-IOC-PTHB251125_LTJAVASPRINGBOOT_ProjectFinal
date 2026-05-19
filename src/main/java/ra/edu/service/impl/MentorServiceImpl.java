@@ -16,7 +16,6 @@ import ra.edu.dto.request.MentorCreateRequest;
 import ra.edu.dto.request.MentorUpdateRequest;
 import ra.edu.dto.response.MentorResponse;
 import ra.edu.dto.response.PaginationResponse;
-import ra.edu.entity.InternshipAssignment;
 import ra.edu.entity.Mentor;
 import ra.edu.entity.User;
 import ra.edu.entity.UserRole;
@@ -61,22 +60,12 @@ public class MentorServiceImpl implements MentorService {
             String email,
             String phoneNumber,
             String department,
-            String academicRank
-    ) {
-
-        if (page < 1) {
-            throw new IllegalArgumentException("Page phải >= 1");
-        }
-
-        if (size < 1) {
-            throw new IllegalArgumentException("Size phải >= 1");
-        }
+            String academicRank) {
 
         Pageable pageable = PageRequest.of(
                 page - 1,
                 size,
-                Sort.by("mentorId").descending()
-        );
+                Sort.by("mentorId").descending());
 
         Page<Mentor> mentorPage;
 
@@ -86,61 +75,50 @@ public class MentorServiceImpl implements MentorService {
             mentorPage =
                     mentorRepository
                             .findAllByDepartmentContainingIgnoreCaseAndAcademicRankContainingIgnoreCase(
-                                    department,
-                                    academicRank,
-                                    pageable
-                            );
+                                    department, academicRank, pageable);
 
         } else if (department != null && !department.isBlank()) {
 
             mentorPage =
                     mentorRepository
                             .findAllByDepartmentContainingIgnoreCase(
-                                    department,
-                                    pageable
-                            );
+                                    department, pageable);
 
         } else if (academicRank != null && !academicRank.isBlank()) {
 
             mentorPage =
                     mentorRepository
                             .findAllByAcademicRankContainingIgnoreCase(
-                                    academicRank,
-                                    pageable
-                            );
+                                    academicRank, pageable);
 
         } else if (username != null && !username.isBlank()) {
 
             mentorPage =
                     mentorRepository
                             .findAllByUser_UsernameContainingIgnoreCase(
-                                    username,
-                                    pageable
-                            );
+                                    username, pageable);
+
         } else if (fullName != null && !fullName.isBlank()) {
 
             mentorPage =
                     mentorRepository
                             .findAllByUser_FullNameContainingIgnoreCase(
-                                    fullName,
-                                    pageable
-                            );
+                                    fullName, pageable);
+
         } else if (email != null && !email.isBlank()) {
 
             mentorPage =
                     mentorRepository
                             .findAllByUser_EmailContainingIgnoreCase(
-                                    email,
-                                    pageable
-                            );
+                                    email, pageable);
+
         } else if (phoneNumber != null && !phoneNumber.isBlank()) {
 
             mentorPage =
                     mentorRepository
                             .findAllByUser_PhoneNumberContainingIgnoreCase(
-                                    phoneNumber,
-                                    pageable
-                            );
+                                    phoneNumber, pageable);
+
         } else {
 
             mentorPage = mentorRepository.findAll(pageable);
@@ -172,24 +150,20 @@ public class MentorServiceImpl implements MentorService {
                 mentorRepository.findById(id)
                         .orElseThrow(() ->
                                 new EntityNotFoundException(
-                                        "Không tìm thấy Mentor với ID = " + id
-                                )
-                        );
+                                        "Không tìm thấy Mentor với ID = " + id));
 
         User currentUser = getCurrentUser();
 
         if (currentUser.getRole() == UserRole.MENTOR) {
 
-            if (!mentor.getUser().getUserId()
-                    .equals(currentUser.getUserId())) {
+            if (!mentor.getUser().getUserId().equals(currentUser.getUserId())) {
 
                 throw new AccessDeniedException(
                         "Mentor ID = "
                                 + currentUser.getUserId()
                                 + " không có quyền xem Mentor ID = "
                                 + id
-                                + " (chỉ được xem thông tin của chính mình)"
-                );
+                                + " (chỉ được xem thông tin của chính mình)");
             }
         }
 
@@ -205,24 +179,14 @@ public class MentorServiceImpl implements MentorService {
             String email,
             String phoneNumber,
             String department,
-            String academicRank
-    ) {
-
-        if (page < 1) {
-            throw new IllegalArgumentException("Page phải >= 1");
-        }
-
-        if (size < 1) {
-            throw new IllegalArgumentException("Size phải >= 1");
-        }
+            String academicRank) {
 
         User currentUser = getCurrentUser();
 
         Pageable pageable = PageRequest.of(
                 page - 1,
                 size,
-                Sort.by("mentorId").descending()
-        );
+                Sort.by("mentorId").descending());
 
         Page<Mentor> mentorPage;
 
@@ -231,71 +195,63 @@ public class MentorServiceImpl implements MentorService {
 
             mentorPage =
                     mentorRepository
-                            .findAllByAssignments_Student_StudentIdAndDepartmentContainingIgnoreCaseAndAcademicRankContainingIgnoreCase(
+                            .findAllByInternshipAssignments_Student_StudentIdAndDepartmentContainingIgnoreCaseAndAcademicRankContainingIgnoreCase(
                                     currentUser.getUserId(),
-                                    department,
-                                    academicRank,
-                                    pageable
-                            );
+                                    department, academicRank, pageable);
+
         } else if (department != null && !department.isBlank()) {
 
             mentorPage =
                     mentorRepository
-                            .findAllByAssignments_Student_StudentIdAndDepartmentContainingIgnoreCase(
+                            .findAllByInternshipAssignments_Student_StudentIdAndDepartmentContainingIgnoreCase(
                                     currentUser.getUserId(),
-                                    department,
-                                    pageable
-                            );
+                                    department, pageable);
+
         } else if (academicRank != null && !academicRank.isBlank()) {
 
             mentorPage =
                     mentorRepository
-                            .findAllByAssignments_Student_StudentIdAndAcademicRankContainingIgnoreCase(
+                            .findAllByInternshipAssignments_Student_StudentIdAndAcademicRankContainingIgnoreCase(
                                     currentUser.getUserId(),
-                                    academicRank,
-                                    pageable
-                            );
+                                    academicRank, pageable);
+
         } else if (username != null && !username.isBlank()) {
 
             mentorPage =
                     mentorRepository
-                            .findAllByAssignments_Student_StudentIdAndUser_UsernameContainingIgnoreCase(
+                            .findAllByInternshipAssignments_Student_StudentIdAndUser_UsernameContainingIgnoreCase(
                                     currentUser.getUserId(),
-                                    username,
-                                    pageable
-                            );
+                                    username, pageable);
+
         } else if (fullName != null && !fullName.isBlank()) {
 
             mentorPage =
                     mentorRepository
-                            .findAllByAssignments_Student_StudentIdAndUser_FullNameContainingIgnoreCase(
+                            .findAllByInternshipAssignments_Student_StudentIdAndUser_FullNameContainingIgnoreCase(
                                     currentUser.getUserId(),
-                                    fullName,
-                                    pageable
-                            );
+                                    fullName, pageable);
+
         } else if (email != null && !email.isBlank()) {
 
             mentorPage =
                     mentorRepository
-                            .findAllByAssignments_Student_StudentIdAndUser_EmailContainingIgnoreCase(
+                            .findAllByInternshipAssignments_Student_StudentIdAndUser_EmailContainingIgnoreCase(
                                     currentUser.getUserId(),
-                                    email,
-                                    pageable
-                            );
+                                    email, pageable);
+
         } else if (phoneNumber != null && !phoneNumber.isBlank()) {
 
             mentorPage =
                     mentorRepository
-                            .findAllByAssignments_Student_StudentIdAndUser_PhoneNumberContainingIgnoreCase(
+                            .findAllByInternshipAssignments_Student_StudentIdAndUser_PhoneNumberContainingIgnoreCase(
                                     currentUser.getUserId(),
-                                    phoneNumber,
-                                    pageable
-                            );
+                                    phoneNumber, pageable);
+
         } else {
 
             mentorPage =
                     mentorRepository
-                            .findAllByAssignments_Student_StudentId(
+                            .findAllByInternshipAssignments_Student_StudentId(
                                     currentUser.getUserId(), pageable);
         }
 
@@ -319,26 +275,20 @@ public class MentorServiceImpl implements MentorService {
     }
 
     @Override
-    public MentorResponse getAssignedMentorById(
-            Long mentorId
-    ) {
+    public MentorResponse getAssignedMentorById(Long mentorId) {
 
         Mentor mentor =
                 mentorRepository.findById(mentorId)
                         .orElseThrow(() ->
                                 new EntityNotFoundException(
                                         "Không tìm thấy Mentor với ID = "
-                                                + mentorId
-                                )
-                        );
+                                                + mentorId));
 
         User currentUser = getCurrentUser();
 
         boolean assigned =
-                mentorRepository.existsByAssignments_Student_StudentIdAndMentorId(
-                        currentUser.getUserId(),
-                        mentorId
-                );
+                mentorRepository.existsByInternshipAssignments_Student_StudentIdAndMentorId(
+                        currentUser.getUserId(), mentorId);
 
         if (!assigned) {
 
@@ -346,45 +296,36 @@ public class MentorServiceImpl implements MentorService {
                     "Student ID = "
                             + currentUser.getUserId()
                             + " không được phân công cho Mentor ID = "
-                            + mentorId
-            );
+                            + mentorId);
         }
 
         return mentorMapper.toResponse(mentor);
     }
 
     @Override
-    public MentorResponse createMentor(
-            MentorCreateRequest request
-    ) {
+    public MentorResponse createMentor(MentorCreateRequest request) {
 
         User user =
                 userRepository.findById(request.getUserId())
                         .orElseThrow(() ->
                                 new EntityNotFoundException(
                                         "Không tìm thấy User với ID = "
-                                                + request.getUserId()
-                                )
-                        );
+                                                + request.getUserId()));
 
         if (user.getRole() != UserRole.MENTOR) {
 
             throw new IllegalStateException(
                     "User ID = "
                             + user.getUserId()
-                            + " phải có role MENTOR mới được liên kết"
-            );
+                            + " phải có role MENTOR mới được liên kết");
         }
 
-        if (mentorRepository.existsByUser_UserId(
-                user.getUserId()
-        )) {
+        if (mentorRepository.existsByUser_UserId(user.getUserId())) {
 
             throw new IllegalStateException(
                     "User ID = "
                             + user.getUserId()
-                            + " đã liên kết với Mentor"
-            );
+                            + " đã liên kết với Mentor");
         }
 
         Mentor mentor = mentorMapper.toEntity(request);
@@ -401,10 +342,7 @@ public class MentorServiceImpl implements MentorService {
     }
 
     @Override
-    public MentorResponse updateMentor(
-            Long id,
-            MentorUpdateRequest request
-    ) {
+    public MentorResponse updateMentor(Long id, MentorUpdateRequest request) {
 
         Mentor mentor =
                 mentorRepository.findById(id)
@@ -416,23 +354,18 @@ public class MentorServiceImpl implements MentorService {
 
         if (currentUser.getRole() == UserRole.MENTOR) {
 
-            if (!mentor.getUser().getUserId()
-                    .equals(currentUser.getUserId())) {
+            if (!mentor.getUser().getUserId().equals(currentUser.getUserId())) {
 
                 throw new AccessDeniedException(
                         "Mentor ID = "
                                 + currentUser.getUserId()
                                 + " không có quyền cập nhật Mentor ID = "
                                 + id
-                                + " (chỉ được cập nhật thông tin của chính mình)"
-                );
+                                + " (chỉ được cập nhật thông tin của chính mình)");
             }
         }
 
-        mentorMapper.updateEntityFromDto(
-                request,
-                mentor
-        );
+        mentorMapper.updateEntityFromDto(request, mentor);
 
         mentor.setUpdatedAt(LocalDateTime.now());
 

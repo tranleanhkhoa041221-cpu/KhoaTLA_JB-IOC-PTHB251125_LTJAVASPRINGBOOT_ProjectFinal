@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
 import ra.edu.entity.UserRole;
+
 @Getter
 @Setter
 public class UserCreateRequest {
@@ -29,13 +30,13 @@ public class UserCreateRequest {
     @Size(max = 20, message = "phoneNumber tối đa 20 ký tự")
     private String phoneNumber;
 
-    @NotBlank(message = "role không được để trống")
-    @Pattern(
-            regexp = "ADMIN|MENTOR|STUDENT",
-            message = "Role không hợp lệ. Giá trị hợp lệ: ADMIN, MENTOR, STUDENT"
-    )
-    private String role;
+//    @NotBlank(message = "role không được để trống")
+//    @Pattern(
+//            regexp = "ADMIN|MENTOR|STUDENT",
+//            message = "Role không hợp lệ. Giá trị hợp lệ: ADMIN, MENTOR, STUDENT"
+//    )
+//    private String role;
 
-//    @NotNull(message = "Role không được để trống")
-//    private UserRole role;
+    @NotNull(message = "Role không được để trống")
+    private UserRole role;
 }

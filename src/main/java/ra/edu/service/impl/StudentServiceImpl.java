@@ -49,7 +49,6 @@ public class StudentServiceImpl implements StudentService {
         return principal.getUser();
     }
 
-
     @Override
     public PaginationResponse<StudentResponse> getAllStudents(
             int page,
@@ -62,27 +61,16 @@ public class StudentServiceImpl implements StudentService {
             String email,
             String phoneNumber,
             String major,
-            String className
-    ) {
-
-        if (page < 1) {
-            throw new IllegalArgumentException("Page phải >= 1");
-        }
-
-        if (size < 1) {
-            throw new IllegalArgumentException("Size phải >= 1");
-        }
+            String className) {
 
         User currentUser = getCurrentUser();
 
         Pageable pageable = PageRequest.of(
                 page - 1,
                 size,
-                Sort.by("studentId").descending()
-        );
+                Sort.by("studentId").descending());
 
         Page<Student> studentPage;
-
 
         if (currentUser.getRole() == UserRole.ADMIN) {
 
@@ -94,6 +82,7 @@ public class StudentServiceImpl implements StudentService {
                                         studentCode,
                                         pageable
                                 );
+
             } else if (address != null && !address.isBlank()) {
 
                 studentPage =
@@ -102,6 +91,7 @@ public class StudentServiceImpl implements StudentService {
                                         address,
                                         pageable
                                 );
+
             } else if (dateOfBirth != null) {
 
                 studentPage =
@@ -110,6 +100,7 @@ public class StudentServiceImpl implements StudentService {
                                         dateOfBirth,
                                         pageable
                                 );
+
             } else if (username != null && !username.isBlank()) {
 
                 studentPage =
@@ -118,6 +109,7 @@ public class StudentServiceImpl implements StudentService {
                                         username,
                                         pageable
                                 );
+
             } else if (fullName != null && !fullName.isBlank()) {
 
                 studentPage =
@@ -126,6 +118,7 @@ public class StudentServiceImpl implements StudentService {
                                         fullName,
                                         pageable
                                 );
+
             } else if (email != null && !email.isBlank()) {
 
                 studentPage =
@@ -134,6 +127,7 @@ public class StudentServiceImpl implements StudentService {
                                         email,
                                         pageable
                                 );
+
             } else if (phoneNumber != null && !phoneNumber.isBlank()) {
 
                 studentPage =
@@ -142,6 +136,7 @@ public class StudentServiceImpl implements StudentService {
                                         phoneNumber,
                                         pageable
                                 );
+
             } else if (major != null && !major.isBlank()
                     && className != null && !className.isBlank()) {
 
@@ -152,6 +147,7 @@ public class StudentServiceImpl implements StudentService {
                                         className,
                                         pageable
                                 );
+
             } else if (major != null && !major.isBlank()) {
 
                 studentPage =
@@ -160,6 +156,7 @@ public class StudentServiceImpl implements StudentService {
                                         major,
                                         pageable
                                 );
+
             } else if (className != null && !className.isBlank()) {
 
                 studentPage =
@@ -168,108 +165,121 @@ public class StudentServiceImpl implements StudentService {
                                         className,
                                         pageable
                                 );
+
             } else {
 
                 studentPage = studentRepository.findAll(pageable);
             }
+
         } else {
+
             if (studentCode != null && !studentCode.isBlank()) {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorIdAndStudentCodeContainingIgnoreCase(
+                                .findAllByInternshipAssignments_Mentor_MentorIdAndStudentCodeContainingIgnoreCase(
                                         currentUser.getUserId(),
                                         studentCode,
                                         pageable
                                 );
+
             } else if (address != null && !address.isBlank()) {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorIdAndAddressContainingIgnoreCase(
+                                .findAllByInternshipAssignments_Mentor_MentorIdAndAddressContainingIgnoreCase(
                                         currentUser.getUserId(),
                                         address,
                                         pageable
                                 );
+
             } else if (dateOfBirth != null) {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorIdAndDateOfBirth(
+                                .findAllByInternshipAssignments_Mentor_MentorIdAndDateOfBirth(
                                         currentUser.getUserId(),
                                         dateOfBirth,
                                         pageable
                                 );
+
             } else if (username != null && !username.isBlank()) {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorIdAndUser_UsernameContainingIgnoreCase(
+                                .findAllByInternshipAssignments_Mentor_MentorIdAndUser_UsernameContainingIgnoreCase(
                                         currentUser.getUserId(),
                                         username,
                                         pageable
                                 );
+
             } else if (fullName != null && !fullName.isBlank()) {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorIdAndUser_FullNameContainingIgnoreCase(
+                                .findAllByInternshipAssignments_Mentor_MentorIdAndUser_FullNameContainingIgnoreCase(
                                         currentUser.getUserId(),
                                         fullName,
                                         pageable
                                 );
+
             } else if (email != null && !email.isBlank()) {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorIdAndUser_EmailContainingIgnoreCase(
+                                .findAllByInternshipAssignments_Mentor_MentorIdAndUser_EmailContainingIgnoreCase(
                                         currentUser.getUserId(),
                                         email,
                                         pageable
                                 );
+
             } else if (phoneNumber != null && !phoneNumber.isBlank()) {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorIdAndUser_PhoneNumberContainingIgnoreCase(
+                                .findAllByInternshipAssignments_Mentor_MentorIdAndUser_PhoneNumberContainingIgnoreCase(
                                         currentUser.getUserId(),
                                         phoneNumber,
                                         pageable
                                 );
+
             } else if (major != null && !major.isBlank()
                     && className != null && !className.isBlank()) {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorIdAndMajorContainingIgnoreCaseAndClassNameContainingIgnoreCase(
+                                .findAllByInternshipAssignments_Mentor_MentorIdAndMajorContainingIgnoreCaseAndClassNameContainingIgnoreCase(
                                         currentUser.getUserId(),
                                         major,
                                         className,
                                         pageable
                                 );
+
             } else if (major != null && !major.isBlank()) {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorIdAndMajorContainingIgnoreCase(
+                                .findAllByInternshipAssignments_Mentor_MentorIdAndMajorContainingIgnoreCase(
                                         currentUser.getUserId(),
                                         major,
                                         pageable
                                 );
+
             } else if (className != null && !className.isBlank()) {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorIdAndClassNameContainingIgnoreCase(
+                                .findAllByInternshipAssignments_Mentor_MentorIdAndClassNameContainingIgnoreCase(
                                         currentUser.getUserId(),
                                         className,
                                         pageable
                                 );
+
             } else {
 
                 studentPage =
                         studentRepository
-                                .findAllByAssignments_Mentor_MentorId(
+                                .findAllByInternshipAssignments_Mentor_MentorId(
                                         currentUser.getUserId(),
                                         pageable
                                 );
@@ -319,7 +329,7 @@ public class StudentServiceImpl implements StudentService {
         if (currentUser.getRole() == UserRole.MENTOR) {
 
             boolean assigned =
-                    studentRepository.existsByAssignments_Mentor_MentorIdAndStudentId(
+                    studentRepository.existsByInternshipAssignments_Mentor_MentorIdAndStudentId(
                             currentUser.getUserId(),
                             id
                     );
@@ -354,17 +364,12 @@ public class StudentServiceImpl implements StudentService {
 
 
     @Override
-    public StudentResponse createStudent(
-            StudentCreateRequest request
-    ) {
+    public StudentResponse createStudent(StudentCreateRequest request) {
 
-        if (studentRepository.existsByStudentCode(
-                request.getStudentCode()
-        )) {
+        if (studentRepository.existsByStudentCodeIgnoreCase(
+                request.getStudentCode())) {
 
-            throw new IllegalStateException(
-                    "Mã sinh viên đã tồn tại"
-            );
+            throw new IllegalStateException("Mã sinh viên đã tồn tại");
         }
 
         User user =
@@ -372,28 +377,23 @@ public class StudentServiceImpl implements StudentService {
                         .orElseThrow(() ->
                                 new EntityNotFoundException(
                                         "Không tìm thấy User với ID = "
-                                                + request.getUserId()
-                                )
-                        );
+                                                + request.getUserId()));
 
         if (user.getRole() != UserRole.STUDENT) {
 
             throw new IllegalStateException(
                     "User ID = "
                             + user.getUserId()
-                            + " phải có role STUDENT mới được liên kết"
-            );
+                            + " phải có role STUDENT mới được liên kết");
         }
 
         if (studentRepository.existsByUser_UserId(
-                user.getUserId()
-        )) {
+                user.getUserId())) {
 
             throw new IllegalStateException(
                     "User ID = "
                             + user.getUserId()
-                            + " đã liên kết với Student"
-            );
+                            + " đã liên kết với Student");
         }
 
         Student student = studentMapper.toEntity(request);
@@ -409,20 +409,14 @@ public class StudentServiceImpl implements StudentService {
         return studentMapper.toResponse(student);
     }
 
-
     @Override
-    public StudentResponse updateStudent(
-            Long id,
-            StudentUpdateRequest request
-    ) {
+    public StudentResponse updateStudent(Long id, StudentUpdateRequest request) {
 
         Student student =
                 studentRepository.findById(id)
                         .orElseThrow(() ->
                                 new EntityNotFoundException(
-                                        "Không tìm thấy Student với ID = " + id
-                                )
-                        );
+                                        "Không tìm thấy Student với ID = " + id));
 
         User currentUser = getCurrentUser();
 
@@ -437,15 +431,11 @@ public class StudentServiceImpl implements StudentService {
                                 + currentUser.getUserId()
                                 + " không có quyền cập nhật Student ID = "
                                 + id
-                                + " (chỉ được cập nhật thông tin của chính mình)"
-                );
+                                + " (chỉ được cập nhật thông tin của chính mình)");
             }
         }
 
-        studentMapper.updateEntityFromDto(
-                request,
-                student
-        );
+        studentMapper.updateEntityFromDto(request, student);
 
         student.setUpdatedAt(LocalDateTime.now());
 

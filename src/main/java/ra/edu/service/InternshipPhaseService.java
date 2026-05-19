@@ -19,9 +19,11 @@ public interface InternshipPhaseService {
 
     InternshipPhaseResponse getPhaseById(Long id);
 
-    InternshipPhaseResponse createPhase(InternshipPhaseCreateRequest request);
+    InternshipPhaseResponse createPhase
+            (InternshipPhaseCreateRequest request);
 
-    InternshipPhaseResponse updatePhase(Long id, InternshipPhaseUpdateRequest request);
+    InternshipPhaseResponse updatePhase
+            (Long id, InternshipPhaseUpdateRequest request);
 
     InternshipPhaseResponse deletePhase(Long id);
 

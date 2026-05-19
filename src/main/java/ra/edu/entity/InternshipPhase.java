@@ -17,6 +17,7 @@ import java.util.List;
 @Entity
 @Table(name = "internship_phases")
 public class InternshipPhase {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long phaseId;
@@ -30,6 +31,7 @@ public class InternshipPhase {
     @Column(nullable = false)
     private LocalDate endDate;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -37,8 +39,9 @@ public class InternshipPhase {
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "phase")
-    private List<InternshipAssignment> assignments;
+    private List<InternshipAssignment> internshipAssignments;
 
     @OneToMany(mappedBy = "phase")
     private List<AssessmentRound> assessmentRounds;
+
 }

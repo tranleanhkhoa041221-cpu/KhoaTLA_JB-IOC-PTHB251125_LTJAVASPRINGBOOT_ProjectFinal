@@ -14,9 +14,10 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "internship_assignments",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "phase_id"}))
+@Table(name = "internship_assignments", uniqueConstraints = @UniqueConstraint
+        (columnNames = {"student_id", "phase_id"}))
 public class InternshipAssignment {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long assignmentId;

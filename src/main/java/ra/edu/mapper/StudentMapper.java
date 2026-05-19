@@ -9,28 +9,28 @@ import ra.edu.entity.Student;
 @Mapper(componentModel = "spring")
 public interface StudentMapper {
 
-    @Mapping(source = "user.username", target = "username")
-    @Mapping(source = "user.fullName", target = "fullName")
-    @Mapping(source = "user.email", target = "email")
-    @Mapping(source = "user.phoneNumber", target = "phoneNumber")
+    @Mapping(target = "username", source = "user.username")
+    @Mapping(target = "fullName", source = "user.fullName")
+    @Mapping(target = "email", source = "user.email")
+    @Mapping(target = "phoneNumber", source = "user.phoneNumber")
     StudentResponse toResponse(Student student);
-
 
     @Mapping(target = "studentId", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "assignments", ignore = true)
+    @Mapping(target = "internshipAssignments", ignore = true)
     Student toEntity(StudentCreateRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy =
-                    NullValuePropertyMappingStrategy.IGNORE)
+            NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "studentId", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "studentCode", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "assignments", ignore = true)
-    void updateEntityFromDto(StudentUpdateRequest request, @MappingTarget Student student);
+    @Mapping(target = "internshipAssignments", ignore = true)
+    void updateEntityFromDto(StudentUpdateRequest request,
+                             @MappingTarget Student student);
 }
 

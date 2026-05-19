@@ -17,8 +17,11 @@ import ra.edu.service.AuthService;
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
+
     private final AuthenticationManager authenticationManager;
+
     private final JwtService jwtService;
+
     private final UserMapper userMapper;
 
     @Override
@@ -26,25 +29,23 @@ public class AuthServiceImpl implements AuthService {
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        request.getInput(),
-                        request.getPassword()
-                )
-        );
+                        request.getInput(), request.getPassword()));
 
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+
         User user = principal.getUser();
 
         String token = jwtService.generateAccessToken(
-                user.getUsername(),
-                user.getRole().name()
-        );
+                user.getUsername(), user.getRole().name());
 
         return new LoginResponse(token, "Bearer");
     }
 
     @Override
     public UserResponse getCurrentUser(Authentication auth) {
+
         UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
+
         return userMapper.toResponse(principal.getUser());
     }
 }

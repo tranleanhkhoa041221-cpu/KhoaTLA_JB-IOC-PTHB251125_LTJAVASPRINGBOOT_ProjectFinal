@@ -9,9 +9,10 @@ import java.time.LocalDate;
 
 public interface InternshipPhaseRepository extends JpaRepository<InternshipPhase, Long> {
 
-    boolean existsByPhaseName(String phaseName);
+    boolean existsByPhaseNameIgnoreCase(String phaseName);
 
-    Page<InternshipPhase> findAllByPhaseNameContainingIgnoreCase(String phaseName, Pageable pageable);
+    Page<InternshipPhase> findAllByPhaseNameContainingIgnoreCase(
+            String phaseName, Pageable pageable);
 
     Page<InternshipPhase> findAllByStartDate(LocalDate startDate, Pageable pageable);
 
@@ -20,5 +21,6 @@ public interface InternshipPhaseRepository extends JpaRepository<InternshipPhase
     Page<InternshipPhase> findAllByStartDateGreaterThanEqualAndEndDateLessThanEqual(
             LocalDate startDate, LocalDate endDate, Pageable pageable);
 
-    Page<InternshipPhase> findAllByDescriptionContainingIgnoreCase(String description, Pageable pageable);
+    Page<InternshipPhase> findAllByDescriptionContainingIgnoreCase(
+            String description, Pageable pageable);
 }

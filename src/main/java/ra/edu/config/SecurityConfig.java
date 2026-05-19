@@ -85,12 +85,67 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.DELETE, "/api/internship-phases/*").hasRole("ADMIN")
 
+                        // Evaluation Criteria
+                        .requestMatchers(HttpMethod.GET, "/api/evaluation-criteria").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
+                        .requestMatchers(HttpMethod.GET, "/api/evaluation-criteria/*").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
+                        .requestMatchers(HttpMethod.POST, "/api/evaluation-criteria").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/evaluation-criteria/*").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/evaluation-criteria/*").hasRole("ADMIN")
+
+                        // Assessment Rounds
+                        .requestMatchers(HttpMethod.GET, "/api/assessment-rounds").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
+                        .requestMatchers(HttpMethod.GET, "/api/assessment-rounds/*").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
+                        .requestMatchers(HttpMethod.POST, "/api/assessment-rounds").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/assessment-rounds/*").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/assessment-rounds/*").hasRole("ADMIN")
+
+                        // Round Criteria
+                        .requestMatchers(HttpMethod.GET, "/api/round-criteria").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
+                        .requestMatchers(HttpMethod.GET, "/api/round-criteria/*").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
+                        .requestMatchers(HttpMethod.POST, "/api/round-criteria").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/round-criteria/*").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/round-criteria/*").hasRole("ADMIN")
+
+                        // Internship Assignments
+                        .requestMatchers(HttpMethod.GET, "/api/internship-assignments").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
+                        .requestMatchers(HttpMethod.GET, "/api/internship-assignments/*").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
+                        .requestMatchers(HttpMethod.POST, "/api/internship-assignments").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/internship-assignments/*/status").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/internship-assignments/*").hasRole("ADMIN")
+
+                        // Assessment Results
+                        .requestMatchers(HttpMethod.GET, "/api/assessment-results").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
+                        .requestMatchers(HttpMethod.GET, "/api/assessment-results/*").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
+                        .requestMatchers(HttpMethod.POST, "/api/assessment-results").hasRole("MENTOR")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/assessment-results/*").hasRole("MENTOR")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/assessment-results/*").hasRole("MENTOR")
+
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint)
                         .accessDeniedHandler(jwtAccessDeniedHandler))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .sessionManagement(ss-> ss.sessionCreationPolicy(SessionCreationPolicy.STATELESS)); // phi trạng thái của restful
+                .sessionManagement(ss -> ss.sessionCreationPolicy(SessionCreationPolicy.STATELESS)); // phi trạng thái của restful
         return http.build();
     }
 

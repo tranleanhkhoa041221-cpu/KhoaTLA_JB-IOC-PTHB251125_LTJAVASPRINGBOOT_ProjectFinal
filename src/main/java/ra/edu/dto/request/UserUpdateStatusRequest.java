@@ -9,6 +9,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class UserUpdateStatusRequest {
+
     @NotBlank(message = "isActive không được để trống")
     @Pattern(
             regexp = "true|false",

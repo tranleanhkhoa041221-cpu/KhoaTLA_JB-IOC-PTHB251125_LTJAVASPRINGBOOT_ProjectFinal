@@ -15,7 +15,8 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "assessment_rounds")
+@Table(name = "assessment_rounds", uniqueConstraints = @UniqueConstraint(
+        columnNames = {"phase_id", "round_name"}))
 public class AssessmentRound {
 
     @Id
@@ -35,6 +36,7 @@ public class AssessmentRound {
     @Column(nullable = false)
     private LocalDate endDate;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     private Boolean isActive = true;

@@ -8,28 +8,28 @@ import ra.edu.entity.Mentor;
 
 @Mapper(componentModel = "spring")
 public interface MentorMapper {
-    // Map từ entity sang response
-    @Mapping(source = "user.username", target = "username")
-    @Mapping(source = "user.fullName", target = "fullName")
-    @Mapping(source = "user.email", target = "email")
-    @Mapping(source = "user.phoneNumber", target = "phoneNumber")
+
+    @Mapping(target = "username", source = "user.username")
+    @Mapping(target = "fullName", source = "user.fullName")
+    @Mapping(target = "email", source = "user.email")
+    @Mapping(target = "phoneNumber", source = "user.phoneNumber")
     MentorResponse toResponse(Mentor mentor);
 
-    // Map từ request tạo mới sang entity
     @Mapping(target = "mentorId", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "assignments", ignore = true)
+    @Mapping(target = "internshipAssignments", ignore = true)
     Mentor toEntity(MentorCreateRequest request);
 
-    // Map từ request update sang entity (update in-place)
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @BeanMapping(nullValuePropertyMappingStrategy =
+            NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "mentorId", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "assignments", ignore = true)
-    void updateEntityFromDto(MentorUpdateRequest request, @MappingTarget Mentor mentor);
+    @Mapping(target = "internshipAssignments", ignore = true)
+    void updateEntityFromDto(MentorUpdateRequest request,
+                             @MappingTarget Mentor mentor);
 }
 

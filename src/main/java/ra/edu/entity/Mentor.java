@@ -16,6 +16,7 @@ import java.util.List;
 @Entity
 @Table(name = "mentors")
 public class Mentor {
+
     @Id
     private Long mentorId;
 
@@ -35,5 +36,5 @@ public class Mentor {
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "mentor")
-    private List<InternshipAssignment> assignments;
+    private List<InternshipAssignment> internshipAssignments;
 }

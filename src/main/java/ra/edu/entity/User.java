@@ -33,7 +33,6 @@ public class User {
     @Column(unique = true, nullable = false, length = 100)
     private String email;
 
-
     @Column(unique = true, length = 20)
     private String phoneNumber;
 
@@ -50,10 +49,6 @@ public class User {
 
     @OneToMany(mappedBy = "evaluatedBy")
     private List<AssessmentResult> assessmentResults;
-
-
-
-
 
 
 }
