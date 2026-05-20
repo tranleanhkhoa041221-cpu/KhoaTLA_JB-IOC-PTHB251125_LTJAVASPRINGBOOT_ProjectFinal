@@ -1123,22 +1123,23 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                 .equals(currentUser.getUserId())) {
 
             throw new ForbiddenException(
-                    "User ID = "
-                            + currentUser.getUserId()
-                            + " không có quyền cập nhật AssessmentResult ID = "
-                            + result.getResultId());
+                    "FORBIDDEN MENTOR UPDATE: không có quyền cập nhật AssessmentResult"
+                            + " | currentMentorId=" + currentUser.getUserId()
+                            + " | ownerMentorId=" + result.getEvaluatedBy().getUserId()
+                            + " | resultId=" + result.getResultId());
+        }
+            assessmentResultMapper.updateEntityFromDto(request, result);
+
+            result.setEvaluationDate(LocalDateTime.now());
+
+            result.setUpdatedAt(LocalDateTime.now());
+
+            assessmentResultRepository.save(result);
+
+            return assessmentResultMapper.toResponse(result);
         }
 
-        assessmentResultMapper.updateEntityFromDto(request, result);
 
-        result.setEvaluationDate(LocalDateTime.now());
-
-        result.setUpdatedAt(LocalDateTime.now());
-
-        assessmentResultRepository.save(result);
-
-        return assessmentResultMapper.toResponse(result);
-    }
 
     @Override
     public AssessmentResultResponse deleteResult(Long id) {
@@ -1158,10 +1159,10 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                 .equals(currentUser.getUserId())) {
 
             throw new ForbiddenException(
-                    "User ID = "
-                            + currentUser.getUserId()
-                            + " không có quyền xóa AssessmentResult ID = "
-                            + result.getResultId());
+                    "FORBIDDEN MENTOR DELETE: không có quyền xóa AssessmentResult"
+                            + " | currentMentorId=" + currentUser.getUserId()
+                            + " | ownerMentorId=" + result.getEvaluatedBy().getUserId()
+                            + " | resultId=" + result.getResultId());
         }
 
         AssessmentResultResponse response =
