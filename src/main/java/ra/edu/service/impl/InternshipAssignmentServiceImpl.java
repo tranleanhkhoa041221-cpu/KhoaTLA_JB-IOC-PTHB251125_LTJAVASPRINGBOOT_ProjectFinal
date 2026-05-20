@@ -531,56 +531,6 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                         pageable);
     }
 
-    private void checkMentorPermission(
-            InternshipAssignment assignment,
-            User currentUser) {
-
-        Mentor mentor = mentorRepository
-                .findByUser_UserId(currentUser.getUserId())
-                .orElseThrow(() ->
-                        new NotFoundException(
-                                "User ID = "
-                                        + currentUser.getUserId()
-                                        + " chưa được liên kết với role MENTOR"));
-
-        Long ownerMentorId =
-                assignment.getMentor().getMentorId();
-
-        if (!ownerMentorId.equals(mentor.getMentorId())) {
-
-            throw new ForbiddenException(
-                    "FORBIDDEN MENTOR: không có quyền truy cập InternshipAssignment"
-                            + " | currentMentorId=" + mentor.getMentorId()
-                            + " | ownerMentorId=" + ownerMentorId
-                            + " | assignmentId=" + assignment.getAssignmentId());
-        }
-    }
-
-    private void checkStudentPermission(
-            InternshipAssignment assignment,
-            User currentUser) {
-
-        Student student = studentRepository
-                .findByUser_UserId(currentUser.getUserId())
-                .orElseThrow(() ->
-                        new NotFoundException(
-                                "User ID = "
-                                        + currentUser.getUserId()
-                                        + " chưa được liên kết với role STUDENT"));
-
-        Long ownerStudentId =
-                assignment.getStudent().getStudentId();
-
-        if (!ownerStudentId.equals(student.getStudentId())) {
-
-            throw new ForbiddenException(
-                    "FORBIDDEN STUDENT: không có quyền truy cập InternshipAssignment"
-                            + " | currentStudentId=" + student.getStudentId()
-                            + " | ownerStudentId=" + ownerStudentId
-                            + " | assignmentId=" + assignment.getAssignmentId());
-        }
-    }
-
     private InternshipAssignmentResponse toResponse(
             InternshipAssignment assignment) {
 
@@ -647,40 +597,86 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
     @Override
     public InternshipAssignmentResponse getAssignmentById(Long id) {
 
-        InternshipAssignment assignment =
-                internshipAssignmentRepository.findById(id)
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "Không tìm thấy InternshipAssignment với ID = " + id));
-
         User currentUser = getCurrentUser();
 
         switch (currentUser.getRole()) {
 
             case ADMIN -> {
+
+                InternshipAssignment assignment =
+                        internshipAssignmentRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy InternshipAssignment với ID = "
+                                                        + id));
+
                 return toResponse(assignment);
             }
-
             case MENTOR -> {
-                checkMentorPermission(
-                        assignment,
-                        currentUser);
+
+                Mentor mentor =
+                        mentorRepository.findByUser_UserId(currentUser.getUserId())
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "User ID = "
+                                                        + currentUser.getUserId()
+                                                        + " chưa được liên kết với role MENTOR"));
+
+                InternshipAssignment assignment =
+                        internshipAssignmentRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy InternshipAssignment với ID = "
+                                                        + id));
+
+                Long ownerMentorId =
+                        assignment.getMentor().getMentorId();
+
+                if (!ownerMentorId.equals(mentor.getMentorId())) {
+
+                    throw new ForbiddenException(
+                            "FORBIDDEN MENTOR: không có quyền truy cập InternshipAssignment"
+                                    + " | currentMentorId=" + mentor.getMentorId()
+                                    + " | ownerMentorId=" + ownerMentorId
+                                    + " | assignmentId=" + assignment.getAssignmentId());
+                }
 
                 return toResponse(assignment);
             }
 
             case STUDENT -> {
-                checkStudentPermission(
-                        assignment,
-                        currentUser);
+
+                Student student =
+                        studentRepository.findByUser_UserId(currentUser.getUserId())
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "User ID = "
+                                                        + currentUser.getUserId()
+                                                        + " chưa được liên kết với role STUDENT"));
+
+                InternshipAssignment assignment =
+                        internshipAssignmentRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy InternshipAssignment với ID = "
+                                                        + id));
+
+                Long ownerStudentId =
+                        assignment.getStudent().getStudentId();
+
+                if (!ownerStudentId.equals(student.getStudentId())) {
+
+                    throw new ForbiddenException(
+                            "FORBIDDEN STUDENT: không có quyền truy cập InternshipAssignment"
+                                    + " | currentStudentId=" + student.getStudentId()
+                                    + " | ownerStudentId=" + ownerStudentId
+                                    + " | assignmentId=" + assignment.getAssignmentId());
+                }
 
                 return toResponse(assignment);
             }
-
             default -> throw new ForbiddenException(
-                    "Role "
-                            + currentUser.getRole()
-                            + " không có quyền truy cập InternshipAssignment");
+                    "Không có quyền truy cập InternshipAssignment");
         }
     }
 

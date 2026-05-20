@@ -288,22 +288,6 @@ public class StudentServiceImpl implements StudentService {
         }
     }
 
-    private void checkStudentPermission(
-            Student student,
-            User currentUser) {
-
-        if (!student.getUser().getUserId()
-                .equals(currentUser.getUserId())) {
-
-            throw new ForbiddenException(
-                    "Student ID = "
-                            + currentUser.getUserId()
-                            + " không có quyền xem Student ID = "
-                            + student.getStudentId()
-                            + " (chỉ được xem thông tin của chính mình)");
-        }
-    }
-
     private StudentResponse toResponse(Student student) {
         return studentMapper.toResponse(student);
     }
@@ -361,40 +345,85 @@ public class StudentServiceImpl implements StudentService {
     @Override
     public StudentResponse getStudentById(Long id) {
 
-        Student student =
-                studentRepository.findById(id)
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "Không tìm thấy Student với ID = " + id
-                                )
-                        );
-
         User currentUser = getCurrentUser();
-
 
         switch (currentUser.getRole()) {
 
             case ADMIN -> {
+
+                Student student =
+                        studentRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy Student với ID = " + id
+                                        ));
+
                 return toResponse(student);
             }
 
             case MENTOR -> {
-                checkMentorPermission(student, currentUser);
+
+                Mentor mentor =
+                        mentorRepository.findByUser_UserId(
+                                        currentUser.getUserId())
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "User ID = "
+                                                        + currentUser.getUserId()
+                                                        + " chưa được liên kết với role MENTOR"));
+
+                Student student =
+                        studentRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy Student với ID = " + id
+                                        ));
+
+                boolean assigned =
+                        studentRepository
+                                .existsByInternshipAssignments_Mentor_MentorIdAndStudentId(
+                                        mentor.getMentorId(),
+                                        student.getStudentId());
+
+                if (!assigned) {
+
+                    throw new ForbiddenException(
+                            "Mentor ID = "
+                                    + mentor.getMentorId()
+                                    + " không được phân công hướng dẫn Student ID = "
+                                    + student.getStudentId());
+                }
+
                 return toResponse(student);
             }
 
             case STUDENT -> {
-                checkStudentPermission(student, currentUser);
-                return toResponse(student);
+
+                Student currentStudent =
+                        studentRepository.findByUser_UserId(currentUser.getUserId())
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "User ID = "
+                                                        + currentUser.getUserId()
+                                                        + " chưa được liên kết với role STUDENT"));
+
+                if (!currentStudent.getStudentId().equals(id)) {
+
+                    throw new ForbiddenException(
+                            "Student ID = "
+                                    + currentUser.getUserId()
+                                    + " không có quyền xem Student ID = "
+                                    + id
+                                    + " (chỉ được xem thông tin của chính mình)");
+                }
+
+                return toResponse(currentStudent);
             }
 
             default -> throw new ForbiddenException(
-                    "Role "
-                            + currentUser.getRole()
-                            + " không có quyền truy cập StudentId");
+                    " không có quyền truy cập Student");
         }
     }
-
 
     @Override
     public StudentResponse createStudent(StudentCreateRequest request) {

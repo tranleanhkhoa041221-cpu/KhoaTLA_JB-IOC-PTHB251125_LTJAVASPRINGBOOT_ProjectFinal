@@ -869,46 +869,6 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                 pageable);
     }
 
-    private void checkMentorPermission(AssessmentResult result, User currentUser) {
-
-        Mentor mentor = mentorRepository.findByUser_UserId(currentUser.getUserId())
-                .orElseThrow(() ->
-                        new NotFoundException(
-                                "User ID = " + currentUser.getUserId()
-                                        + " chưa được liên kết với role MENTOR"));
-
-        Long ownerMentorId = result.getAssignment().getMentor().getMentorId();
-
-        if (!ownerMentorId.equals(mentor.getMentorId())) {
-            throw new ForbiddenException(
-                    "FORBIDDEN MENTOR: không có quyền truy cập AssessmentResult"
-                            + " | currentMentorId=" + mentor.getMentorId()
-                            + " | ownerMentorId=" + ownerMentorId
-                            + " | resultId=" + result.getResultId()
-            );
-        }
-    }
-
-    private void checkStudentPermission(AssessmentResult result, User currentUser) {
-
-        Student student = studentRepository.findByUser_UserId(currentUser.getUserId())
-                .orElseThrow(() ->
-                        new NotFoundException(
-                                "User ID = " + currentUser.getUserId()
-                                        + " chưa được liên kết với role STUDENT"));
-
-        Long ownerStudentId = result.getAssignment().getStudent().getStudentId();
-
-        if (!ownerStudentId.equals(student.getStudentId())) {
-            throw new ForbiddenException(
-                    "FORBIDDEN STUDENT: không có quyền truy cập AssessmentResult"
-                            + " | currentStudentId=" + student.getStudentId()
-                            + " | ownerStudentId=" + ownerStudentId
-                            + " | resultId=" + result.getResultId()
-            );
-        }
-    }
-
     private AssessmentResultResponse toResponse(AssessmentResult result) {
         return assessmentResultMapper.toResponse(result);
     }
@@ -970,34 +930,92 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     @Override
     public AssessmentResultResponse getResultById(Long id) {
 
-        AssessmentResult result =
-                assessmentResultRepository.findById(id)
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "Không tìm thấy AssessmentResult với ID = "
-                                                + id));
-
         User currentUser = getCurrentUser();
 
         switch (currentUser.getRole()) {
 
             case ADMIN -> {
+
+                AssessmentResult result =
+                        assessmentResultRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy AssessmentResult với ID = "
+                                                        + id));
+
                 return toResponse(result);
             }
 
             case MENTOR -> {
-                checkMentorPermission(result, currentUser);
+
+                Mentor mentor =
+                        mentorRepository.findByUser_UserId(currentUser.getUserId())
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "User ID = "
+                                                        + currentUser.getUserId()
+                                                        + " chưa được liên kết với role MENTOR"));
+
+                AssessmentResult result =
+                        assessmentResultRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy AssessmentResult với ID = "
+                                                        + id));
+
+                Long ownerMentorId =
+                        result.getAssignment()
+                                .getMentor()
+                                .getMentorId();
+
+                if (!ownerMentorId.equals(mentor.getMentorId())) {
+
+                    throw new ForbiddenException(
+                            "FORBIDDEN MENTOR: không có quyền truy cập AssessmentResult"
+                                    + " | currentMentorId=" + mentor.getMentorId()
+                                    + " | ownerMentorId=" + ownerMentorId
+                                    + " | resultId=" + result.getResultId());
+                }
+
                 return toResponse(result);
             }
 
             case STUDENT -> {
-                checkStudentPermission(result, currentUser);
-                return toResponse(result);
 
+                Student student =
+                        studentRepository.findByUser_UserId(currentUser.getUserId())
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "User ID = "
+                                                        + currentUser.getUserId()
+                                                        + " chưa được liên kết với role STUDENT"));
+
+                AssessmentResult result =
+                        assessmentResultRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy AssessmentResult với ID = "
+                                                        + id));
+
+                Long ownerStudentId =
+                        result.getAssignment()
+                                .getStudent()
+                                .getStudentId();
+
+                if (!ownerStudentId.equals(student.getStudentId())) {
+
+                    throw new ForbiddenException(
+                            "FORBIDDEN STUDENT: không có quyền truy cập AssessmentResult"
+                                    + " | currentStudentId=" + student.getStudentId()
+                                    + " | ownerStudentId=" + ownerStudentId
+                                    + " | resultId=" + result.getResultId());
+                }
+
+                return toResponse(result);
             }
 
             default -> throw new ForbiddenException(
-                    "Role " + currentUser.getRole() + " không có quyền truy cập AssessmentResult");
+                    "Không có quyền truy cập AssessmentResult");
         }
     }
 
