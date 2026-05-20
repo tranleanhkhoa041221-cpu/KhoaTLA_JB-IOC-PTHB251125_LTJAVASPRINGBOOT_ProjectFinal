@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ra.edu.dto.request.StudentCreateRequest;
+import ra.edu.dto.request.StudentFilterRequest;
 import ra.edu.dto.request.StudentUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
 import ra.edu.service.StudentService;
@@ -22,21 +23,11 @@ public class StudentController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAll(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String studentCode,
-            @RequestParam(required = false) String address,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate dateOfBirth,
-            @RequestParam(required = false) String username,
-            @RequestParam(required = false) String fullName,
-            @RequestParam(required = false) String email,
-            @RequestParam(required = false) String phoneNumber,
-            @RequestParam(required = false) String major,
-            @RequestParam(required = false) String className) {
+            @Valid @ModelAttribute StudentFilterRequest filter) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy danh sách sinh viên thành công",
-                        studentService.getAllStudents(page, size, studentCode, address, dateOfBirth, username, fullName, email, phoneNumber, major, className)));
+                        studentService.getAllStudents(filter)));
     }
 
     @GetMapping("/{id}")

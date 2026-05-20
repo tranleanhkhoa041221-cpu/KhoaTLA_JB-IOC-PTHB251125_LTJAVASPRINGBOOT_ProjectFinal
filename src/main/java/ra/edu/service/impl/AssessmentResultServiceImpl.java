@@ -1,27 +1,29 @@
 package ra.edu.service.impl;
 
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import ra.edu.config.principal.UserPrincipal;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.AssessmentResultCreateRequest;
+import ra.edu.dto.request.AssessmentResultFilterRequest;
 import ra.edu.dto.request.AssessmentResultUpdateRequest;
 import ra.edu.dto.response.AssessmentResultResponse;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.entity.*;
+import ra.edu.exception.BadRequestException;
+import ra.edu.exception.ConflictException;
+import ra.edu.exception.ForbiddenException;
+import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.AssessmentResultMapper;
 import ra.edu.repository.*;
 import ra.edu.service.AssessmentResultService;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -58,893 +60,892 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         return principal.getUser();
     }
 
-    @Override
-    public PaginationResponse<AssessmentResultResponse> getAllResults(
-            int page,
-            int size,
-            Long assignmentId,
-            Long studentId,
-            Long mentorId,
-            Long phaseId,
-            InternshipAssignmentsStatus assignmentStatus,
-            Long roundId,
-            Long criterionId,
-            Long evaluatedById,
-            String studentUsername,
-            String studentFullName,
-            String studentEmail,
-            String studentPhoneNumber,
-            String mentorUsername,
-            String mentorFullName,
-            String mentorEmail,
-            String mentorPhoneNumber,
-            String phaseName,
-            String roundName,
-            String criterionName,
-            String evaluatedByUsername,
-            String evaluatedByFullName,
-            String evaluatedByEmail,
-            String evaluatedByPhoneNumber,
-            BigDecimal score,
-            BigDecimal minScore,
-            BigDecimal maxScore,
-            String comments,
-            LocalDateTime evaluationDate,
-            LocalDateTime minEvaluationDate,
-            LocalDateTime maxEvaluationDate) {
+    private void validateFilterIds(AssessmentResultFilterRequest filter) {
 
-        if (minScore != null && maxScore != null
-                && minScore.compareTo(maxScore) > 0) {
+        if (filter.getAssignmentId() != null
+                && !internshipAssignmentRepository.existsById(filter.getAssignmentId())) {
+            throw new NotFoundException(
+                    "Không tìm thấy InternshipAssignment với ID = " + filter.getAssignmentId());
+        }
 
-            throw new IllegalArgumentException(
+        if (filter.getStudentId() != null
+                && !studentRepository.existsById(filter.getStudentId())) {
+            throw new NotFoundException(
+                    "Không tìm thấy Student với ID = " + filter.getStudentId());
+        }
+
+        if (filter.getMentorId() != null
+                && !mentorRepository.existsById(filter.getMentorId())) {
+            throw new NotFoundException(
+                    "Không tìm thấy Mentor với ID = " + filter.getMentorId());
+        }
+
+        if (filter.getPhaseId() != null
+                && !internshipPhaseRepository.existsById(filter.getPhaseId())) {
+            throw new NotFoundException(
+                    "Không tìm thấy InternshipPhase với ID = " + filter.getPhaseId());
+        }
+
+        if (filter.getRoundId() != null
+                && !assessmentRoundRepository.existsById(filter.getRoundId())) {
+            throw new NotFoundException(
+                    "Không tìm thấy AssessmentRound với ID = " + filter.getRoundId());
+        }
+
+        if (filter.getCriterionId() != null
+                && !evaluationCriteriaRepository.existsById(filter.getCriterionId())) {
+            throw new NotFoundException(
+                    "Không tìm thấy EvaluationCriteria với ID = " + filter.getCriterionId());
+        }
+
+        if (filter.getEvaluatedById() != null
+                && !userRepository.existsById(filter.getEvaluatedById())) {
+            throw new NotFoundException(
+                    "Không tìm thấy User với ID = " + filter.getEvaluatedById());
+        }
+    }
+
+    private void validateScoreAndDate(AssessmentResultFilterRequest filter) {
+
+        if (filter.getMinScore() != null && filter.getMaxScore() != null
+                && filter.getMinScore().compareTo(filter.getMaxScore()) > 0) {
+
+            throw new BadRequestException(
                     "minScore không được lớn hơn maxScore");
         }
 
-        if (minEvaluationDate != null && maxEvaluationDate != null
-                && minEvaluationDate.isAfter(maxEvaluationDate)) {
+        if (filter.getMinEvaluationDate() != null && filter.getMaxEvaluationDate() != null
+                && filter.getMinEvaluationDate().isAfter(filter.getMaxEvaluationDate())) {
 
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "minEvaluationDate không được sau maxEvaluationDate");
         }
+    }
 
-        if (assignmentId != null
-                && !internshipAssignmentRepository.existsById(assignmentId)) {
+    private Page<AssessmentResult> getAllForAdmin(
+            AssessmentResultFilterRequest filter,
+            Pageable pageable) {
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy InternshipAssignment với ID = "
-                            + assignmentId);
+        if (filter.getAssignmentId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_AssignmentId(
+                            filter.getAssignmentId(), pageable);
+
+        } else if (filter.getStudentId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentId(
+                            filter.getStudentId(), pageable);
+
+        } else if (filter.getMentorId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorId(
+                            filter.getMentorId(), pageable);
+
+        } else if (filter.getPhaseId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Phase_PhaseId(
+                            filter.getPhaseId(), pageable);
+
+        } else if (filter.getAssignmentStatus() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Status(
+                            filter.getAssignmentStatus(), pageable);
+
+        } else if (filter.getRoundId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByRound_RoundId(
+                            filter.getRoundId(), pageable);
+
+        } else if (filter.getCriterionId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByCriterion_CriterionId(
+                            filter.getCriterionId(), pageable);
+
+        } else if (filter.getEvaluatedById() != null) {
+
+            return assessmentResultRepository
+                    .findAllByEvaluatedBy_UserId(
+                            filter.getEvaluatedById(), pageable);
+
+        } else if (filter.getScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByScore(
+                            filter.getScore(), pageable);
+
+        } else if (filter.getMinScore() != null && filter.getMaxScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByScoreBetween(
+                            filter.getMinScore(),
+                            filter.getMaxScore(),
+                            pageable);
+
+        } else if (filter.getMinScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByScoreGreaterThanEqual(
+                            filter.getMinScore(), pageable);
+
+        } else if (filter.getMaxScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByScoreLessThanEqual(
+                            filter.getMaxScore(), pageable);
+
+        } else if (filter.getComments() != null && !filter.getComments().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByCommentsContainingIgnoreCase(
+                            filter.getComments(), pageable);
+
+        } else if (filter.getEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByEvaluationDate(
+                            filter.getEvaluationDate(), pageable);
+
+        } else if (filter.getMinEvaluationDate() != null
+                && filter.getMaxEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByEvaluationDateBetween(
+                            filter.getMinEvaluationDate(),
+                            filter.getMaxEvaluationDate(),
+                            pageable);
+
+        } else if (filter.getMinEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByEvaluationDateGreaterThanEqual(
+                            filter.getMinEvaluationDate(), pageable);
+
+        } else if (filter.getMaxEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByEvaluationDateLessThanEqual(
+                            filter.getMaxEvaluationDate(), pageable);
+
+        } else if (filter.getStudentUsername() != null && !filter.getStudentUsername().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_User_UsernameContainingIgnoreCase(
+                            filter.getStudentUsername(), pageable);
+
+        } else if (filter.getStudentFullName() != null && !filter.getStudentFullName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_User_FullNameContainingIgnoreCase(
+                            filter.getStudentFullName(), pageable);
+
+        } else if (filter.getStudentEmail() != null && !filter.getStudentEmail().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_User_EmailContainingIgnoreCase(
+                            filter.getStudentEmail(), pageable);
+
+        } else if (filter.getStudentPhoneNumber() != null && !filter.getStudentPhoneNumber().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_User_PhoneNumberContainingIgnoreCase(
+                            filter.getStudentPhoneNumber(), pageable);
+
+        } else if (filter.getMentorUsername() != null && !filter.getMentorUsername().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_User_UsernameContainingIgnoreCase(
+                            filter.getMentorUsername(), pageable);
+
+        } else if (filter.getMentorFullName() != null && !filter.getMentorFullName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_User_FullNameContainingIgnoreCase(
+                            filter.getMentorFullName(), pageable);
+
+        } else if (filter.getMentorEmail() != null && !filter.getMentorEmail().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_User_EmailContainingIgnoreCase(
+                            filter.getMentorEmail(), pageable);
+
+        } else if (filter.getMentorPhoneNumber() != null && !filter.getMentorPhoneNumber().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_User_PhoneNumberContainingIgnoreCase(
+                            filter.getMentorPhoneNumber(), pageable);
+
+        } else if (filter.getPhaseName() != null && !filter.getPhaseName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Phase_PhaseNameContainingIgnoreCase(
+                            filter.getPhaseName(), pageable);
+
+        } else if (filter.getRoundName() != null && !filter.getRoundName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByRound_RoundNameContainingIgnoreCase(
+                            filter.getRoundName(), pageable);
+
+        } else if (filter.getCriterionName() != null && !filter.getCriterionName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByCriterion_CriterionNameContainingIgnoreCase(
+                            filter.getCriterionName(), pageable);
+
+        } else if (filter.getEvaluatedByUsername() != null && !filter.getEvaluatedByUsername().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByEvaluatedBy_UsernameContainingIgnoreCase(
+                            filter.getEvaluatedByUsername(), pageable);
+
+        } else if (filter.getEvaluatedByFullName() != null && !filter.getEvaluatedByFullName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByEvaluatedBy_FullNameContainingIgnoreCase(
+                            filter.getEvaluatedByFullName(), pageable);
+
+        } else if (filter.getEvaluatedByEmail() != null && !filter.getEvaluatedByEmail().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByEvaluatedBy_EmailContainingIgnoreCase(
+                            filter.getEvaluatedByEmail(), pageable);
+
+        } else if (filter.getEvaluatedByPhoneNumber() != null && !filter.getEvaluatedByPhoneNumber().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByEvaluatedBy_PhoneNumberContainingIgnoreCase(
+                            filter.getEvaluatedByPhoneNumber(), pageable);
         }
 
-        if (studentId != null && !studentRepository.existsById(studentId)) {
+        return assessmentResultRepository.findAll(pageable);
+    }
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy Student với ID = "
-                            + studentId);
+    private Page<AssessmentResult> getAllForMentor(
+            AssessmentResultFilterRequest filter,
+            Pageable pageable,
+            User currentUser) {
+
+        Mentor mentor = mentorRepository
+                .findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = " + currentUser.getUserId()
+                                        + " chưa được liên kết với role MENTOR"));
+
+        Long mentorId = mentor.getMentorId();
+
+        if (filter.getAssignmentId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_AssignmentId(
+                            mentorId,
+                            filter.getAssignmentId(),
+                            pageable);
+
+        } else if (filter.getStudentId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_StudentId(
+                            mentorId,
+                            filter.getStudentId(),
+                            pageable);
+
+        } else if (filter.getPhaseId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Phase_PhaseId(
+                            mentorId,
+                            filter.getPhaseId(),
+                            pageable);
+
+        } else if (filter.getAssignmentStatus() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Status(
+                            mentorId,
+                            filter.getAssignmentStatus(),
+                            pageable);
+
+        } else if (filter.getRoundId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndRound_RoundId(
+                            mentorId,
+                            filter.getRoundId(),
+                            pageable);
+
+        } else if (filter.getCriterionId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndCriterion_CriterionId(
+                            mentorId,
+                            filter.getCriterionId(),
+                            pageable);
+
+        } else if (filter.getEvaluatedById() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_UserId(
+                            mentorId,
+                            filter.getEvaluatedById(),
+                            pageable);
+
+        } else if (filter.getScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndScore(
+                            mentorId,
+                            filter.getScore(),
+                            pageable);
+
+        } else if (filter.getMinScore() != null && filter.getMaxScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndScoreBetween(
+                            mentorId,
+                            filter.getMinScore(),
+                            filter.getMaxScore(),
+                            pageable);
+
+        } else if (filter.getMinScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndScoreGreaterThanEqual(
+                            mentorId,
+                            filter.getMinScore(),
+                            pageable);
+
+        } else if (filter.getMaxScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndScoreLessThanEqual(
+                            mentorId,
+                            filter.getMaxScore(),
+                            pageable);
+
+        } else if (filter.getComments() != null && !filter.getComments().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndCommentsContainingIgnoreCase(
+                            mentorId,
+                            filter.getComments(),
+                            pageable);
+
+        } else if (filter.getEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndEvaluationDate(
+                            mentorId,
+                            filter.getEvaluationDate(),
+                            pageable);
+
+        } else if (filter.getMinEvaluationDate() != null && filter.getMaxEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndEvaluationDateBetween(
+                            mentorId,
+                            filter.getMinEvaluationDate(),
+                            filter.getMaxEvaluationDate(),
+                            pageable);
+
+        } else if (filter.getMinEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndEvaluationDateGreaterThanEqual(
+                            mentorId,
+                            filter.getMinEvaluationDate(),
+                            pageable);
+
+        } else if (filter.getMaxEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndEvaluationDateLessThanEqual(
+                            mentorId,
+                            filter.getMaxEvaluationDate(),
+                            pageable);
+
+        } else if (filter.getStudentUsername() != null && !filter.getStudentUsername().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_User_UsernameContainingIgnoreCase(
+                            mentorId,
+                            filter.getStudentUsername(),
+                            pageable);
+
+        } else if (filter.getStudentFullName() != null && !filter.getStudentFullName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_User_FullNameContainingIgnoreCase(
+                            mentorId,
+                            filter.getStudentFullName(),
+                            pageable);
+
+        } else if (filter.getStudentEmail() != null && !filter.getStudentEmail().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_User_EmailContainingIgnoreCase(
+                            mentorId,
+                            filter.getStudentEmail(),
+                            pageable);
+
+        } else if (filter.getStudentPhoneNumber() != null && !filter.getStudentPhoneNumber().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_User_PhoneNumberContainingIgnoreCase(
+                            mentorId,
+                            filter.getStudentPhoneNumber(),
+                            pageable);
+
+        } else if (filter.getMentorUsername() != null && !filter.getMentorUsername().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Mentor_User_UsernameContainingIgnoreCase(
+                            mentorId,
+                            filter.getMentorUsername(),
+                            pageable);
+
+        } else if (filter.getMentorFullName() != null && !filter.getMentorFullName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Mentor_User_FullNameContainingIgnoreCase(
+                            mentorId,
+                            filter.getMentorFullName(),
+                            pageable);
+
+        } else if (filter.getMentorEmail() != null && !filter.getMentorEmail().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Mentor_User_EmailContainingIgnoreCase(
+                            mentorId,
+                            filter.getMentorEmail(),
+                            pageable);
+
+        } else if (filter.getMentorPhoneNumber() != null && !filter.getMentorPhoneNumber().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Mentor_User_PhoneNumberContainingIgnoreCase(
+                            mentorId,
+                            filter.getMentorPhoneNumber(),
+                            pageable);
+
+        } else if (filter.getPhaseName() != null && !filter.getPhaseName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndAssignment_Phase_PhaseNameContainingIgnoreCase(
+                            mentorId,
+                            filter.getPhaseName(),
+                            pageable);
+
+        } else if (filter.getRoundName() != null && !filter.getRoundName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndRound_RoundNameContainingIgnoreCase(
+                            mentorId,
+                            filter.getRoundName(),
+                            pageable);
+
+        } else if (filter.getCriterionName() != null && !filter.getCriterionName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndCriterion_CriterionNameContainingIgnoreCase(
+                            mentorId,
+                            filter.getCriterionName(),
+                            pageable);
+
+        } else if (filter.getEvaluatedByUsername() != null && !filter.getEvaluatedByUsername().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_UsernameContainingIgnoreCase(
+                            mentorId,
+                            filter.getEvaluatedByUsername(),
+                            pageable);
+
+        } else if (filter.getEvaluatedByFullName() != null && !filter.getEvaluatedByFullName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_FullNameContainingIgnoreCase(
+                            mentorId,
+                            filter.getEvaluatedByFullName(),
+                            pageable);
+
+        } else if (filter.getEvaluatedByEmail() != null && !filter.getEvaluatedByEmail().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_EmailContainingIgnoreCase(
+                            mentorId,
+                            filter.getEvaluatedByEmail(),
+                            pageable);
+
+        } else if (filter.getEvaluatedByPhoneNumber() != null && !filter.getEvaluatedByPhoneNumber().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_PhoneNumberContainingIgnoreCase(
+                            mentorId,
+                            filter.getEvaluatedByPhoneNumber(),
+                            pageable);
         }
 
-        if (mentorId != null && !mentorRepository.existsById(mentorId)) {
+        return assessmentResultRepository
+                .findAllByAssignment_Mentor_MentorId(
+                        mentorId,
+                        pageable);
+    }
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy Mentor với ID = "
-                            + mentorId);
+    private Page<AssessmentResult> getAllForStudent(
+            AssessmentResultFilterRequest filter,
+            Pageable pageable,
+            User currentUser) {
+
+        Student student = studentRepository
+                .findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = " + currentUser.getUserId()
+                                        + " chưa được liên kết với role STUDENT"));
+
+        Long studentId = student.getStudentId();
+
+        if (filter.getAssignmentId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_AssignmentId(
+                            studentId,
+                            filter.getAssignmentId(),
+                            pageable);
+
+        } else if (filter.getMentorId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_MentorId(
+                            studentId,
+                            filter.getMentorId(),
+                            pageable);
+
+        } else if (filter.getPhaseId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Phase_PhaseId(
+                            studentId,
+                            filter.getPhaseId(),
+                            pageable);
+
+        } else if (filter.getAssignmentStatus() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Status(
+                            studentId,
+                            filter.getAssignmentStatus(),
+                            pageable);
+
+        } else if (filter.getRoundId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndRound_RoundId(
+                            studentId,
+                            filter.getRoundId(),
+                            pageable);
+
+        } else if (filter.getCriterionId() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndCriterion_CriterionId(
+                            studentId,
+                            filter.getCriterionId(),
+                            pageable);
+
+        } else if (filter.getEvaluatedById() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndEvaluatedBy_UserId(
+                            studentId,
+                            filter.getEvaluatedById(),
+                            pageable);
+
+        } else if (filter.getScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndScore(
+                            studentId,
+                            filter.getScore(),
+                            pageable);
+
+        } else if (filter.getMinScore() != null && filter.getMaxScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndScoreBetween(
+                            studentId,
+                            filter.getMinScore(),
+                            filter.getMaxScore(),
+                            pageable);
+
+        } else if (filter.getMinScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndScoreGreaterThanEqual(
+                            studentId,
+                            filter.getMinScore(),
+                            pageable);
+
+        } else if (filter.getMaxScore() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndScoreLessThanEqual(
+                            studentId,
+                            filter.getMaxScore(),
+                            pageable);
+
+        } else if (filter.getComments() != null && !filter.getComments().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndCommentsContainingIgnoreCase(
+                            studentId,
+                            filter.getComments(),
+                            pageable);
+
+        } else if (filter.getEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndEvaluationDate(
+                            studentId,
+                            filter.getEvaluationDate(),
+                            pageable);
+
+        } else if (filter.getMinEvaluationDate() != null
+                && filter.getMaxEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndEvaluationDateBetween(
+                            studentId,
+                            filter.getMinEvaluationDate(),
+                            filter.getMaxEvaluationDate(),
+                            pageable);
+
+        } else if (filter.getMinEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndEvaluationDateGreaterThanEqual(
+                            studentId,
+                            filter.getMinEvaluationDate(),
+                            pageable);
+
+        } else if (filter.getMaxEvaluationDate() != null) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndEvaluationDateLessThanEqual(
+                            studentId,
+                            filter.getMaxEvaluationDate(),
+                            pageable);
+
+        } else if (filter.getStudentUsername() != null && !filter.getStudentUsername().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Student_User_UsernameContainingIgnoreCase(
+                            studentId,
+                            filter.getStudentUsername(),
+                            pageable);
+
+        } else if (filter.getStudentFullName() != null && !filter.getStudentFullName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Student_User_FullNameContainingIgnoreCase(
+                            studentId,
+                            filter.getStudentFullName(),
+                            pageable);
+
+        } else if (filter.getStudentEmail() != null && !filter.getStudentEmail().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Student_User_EmailContainingIgnoreCase(
+                            studentId,
+                            filter.getStudentEmail(),
+                            pageable);
+
+        } else if (filter.getStudentPhoneNumber() != null && !filter.getStudentPhoneNumber().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Student_User_PhoneNumberContainingIgnoreCase(
+                            studentId,
+                            filter.getStudentPhoneNumber(),
+                            pageable);
+
+        } else if (filter.getMentorUsername() != null && !filter.getMentorUsername().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_User_UsernameContainingIgnoreCase(
+                            studentId,
+                            filter.getMentorUsername(),
+                            pageable);
+
+        } else if (filter.getMentorFullName() != null && !filter.getMentorFullName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_User_FullNameContainingIgnoreCase(
+                            studentId,
+                            filter.getMentorFullName(),
+                            pageable);
+
+        } else if (filter.getMentorEmail() != null && !filter.getMentorEmail().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_User_EmailContainingIgnoreCase(
+                            studentId,
+                            filter.getMentorEmail(),
+                            pageable);
+
+        } else if (filter.getMentorPhoneNumber() != null && !filter.getMentorPhoneNumber().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_User_PhoneNumberContainingIgnoreCase(
+                            studentId,
+                            filter.getMentorPhoneNumber(),
+                            pageable);
+
+        } else if (filter.getPhaseName() != null && !filter.getPhaseName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndAssignment_Phase_PhaseNameContainingIgnoreCase(
+                            studentId,
+                            filter.getPhaseName(),
+                            pageable);
+
+        } else if (filter.getRoundName() != null && !filter.getRoundName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndRound_RoundNameContainingIgnoreCase(
+                            studentId,
+                            filter.getRoundName(),
+                            pageable);
+
+        } else if (filter.getCriterionName() != null && !filter.getCriterionName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndCriterion_CriterionNameContainingIgnoreCase(
+                            studentId,
+                            filter.getCriterionName(),
+                            pageable);
+
+        } else if (filter.getEvaluatedByUsername() != null && !filter.getEvaluatedByUsername().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndEvaluatedBy_UsernameContainingIgnoreCase(
+                            studentId,
+                            filter.getEvaluatedByUsername(),
+                            pageable);
+
+        } else if (filter.getEvaluatedByFullName() != null && !filter.getEvaluatedByFullName().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndEvaluatedBy_FullNameContainingIgnoreCase(
+                            studentId,
+                            filter.getEvaluatedByFullName(),
+                            pageable);
+
+        } else if (filter.getEvaluatedByEmail() != null && !filter.getEvaluatedByEmail().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndEvaluatedBy_EmailContainingIgnoreCase(
+                            studentId,
+                            filter.getEvaluatedByEmail(),
+                            pageable);
+
+        } else if (filter.getEvaluatedByPhoneNumber() != null && !filter.getEvaluatedByPhoneNumber().isBlank()) {
+
+            return assessmentResultRepository
+                    .findAllByAssignment_Student_StudentIdAndEvaluatedBy_PhoneNumberContainingIgnoreCase(
+                            studentId,
+                            filter.getEvaluatedByPhoneNumber(),
+                            pageable);
         }
 
-        if (phaseId != null && !internshipPhaseRepository.existsById(phaseId)) {
+        return assessmentResultRepository.findAllByAssignment_Student_StudentId(
+                studentId,
+                pageable);
+    }
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy InternshipPhase với ID = "
-                            + phaseId);
+    private void checkMentorPermission(AssessmentResult result, User currentUser) {
+
+        Mentor mentor = mentorRepository.findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = " + currentUser.getUserId()
+                                        + " chưa được liên kết với role MENTOR"));
+
+        Long ownerMentorId = result.getAssignment().getMentor().getMentorId();
+
+        if (!ownerMentorId.equals(mentor.getMentorId())) {
+            throw new ForbiddenException(
+                    "FORBIDDEN MENTOR: không có quyền truy cập AssessmentResult"
+                            + " | currentMentorId=" + mentor.getMentorId()
+                            + " | ownerMentorId=" + ownerMentorId
+                            + " | resultId=" + result.getResultId()
+            );
         }
+    }
 
-        if (roundId != null && !assessmentRoundRepository.existsById(roundId)) {
+    private void checkStudentPermission(AssessmentResult result, User currentUser) {
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy AssessmentRound với ID = "
-                            + roundId);
+        Student student = studentRepository.findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = " + currentUser.getUserId()
+                                        + " chưa được liên kết với role STUDENT"));
+
+        Long ownerStudentId = result.getAssignment().getStudent().getStudentId();
+
+        if (!ownerStudentId.equals(student.getStudentId())) {
+            throw new ForbiddenException(
+                    "FORBIDDEN STUDENT: không có quyền truy cập AssessmentResult"
+                            + " | currentStudentId=" + student.getStudentId()
+                            + " | ownerStudentId=" + ownerStudentId
+                            + " | resultId=" + result.getResultId()
+            );
         }
+    }
 
-        if (criterionId != null
-                && !evaluationCriteriaRepository.existsById(criterionId)) {
+    private AssessmentResultResponse toResponse(AssessmentResult result) {
+        return assessmentResultMapper.toResponse(result);
+    }
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy EvaluationCriteria với ID = "
-                            + criterionId);
-        }
+    @Override
+    public PaginationResponse<AssessmentResultResponse> getAllResult(
+            AssessmentResultFilterRequest filter) {
 
-        if (evaluatedById != null && !userRepository.existsById(evaluatedById)) {
+        validateFilterIds(filter);
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy User với ID = "
-                            + evaluatedById);
-        }
+        validateScoreAndDate(filter);
 
         Pageable pageable = PageRequest.of(
-                page - 1,
-                size,
+                filter.getPage() - 1,
+                filter.getSize(),
                 Sort.by("resultId").descending());
 
         User currentUser = getCurrentUser();
 
         Page<AssessmentResult> resultPage;
 
-        if (currentUser.getRole() == UserRole.ADMIN) {
+        switch (currentUser.getRole()) {
 
-            if (assignmentId != null) {
+            case ADMIN -> resultPage = getAllForAdmin(filter, pageable);
 
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_AssignmentId(
-                                        assignmentId, pageable);
+            case MENTOR -> resultPage = getAllForMentor(
+                    filter,
+                    pageable,
+                    currentUser);
 
-            } else if (studentId != null) {
+            case STUDENT -> resultPage = getAllForStudent(
+                    filter,
+                    pageable,
+                    currentUser);
 
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentId(
-                                        studentId, pageable);
-
-            } else if (mentorId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorId(
-                                        mentorId, pageable);
-
-            } else if (phaseId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Phase_PhaseId(
-                                        phaseId, pageable);
-
-            } else if (assignmentStatus != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Status(
-                                        assignmentStatus, pageable);
-
-            } else if (roundId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByRound_RoundId(
-                                        roundId, pageable);
-
-            } else if (criterionId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByCriterion_CriterionId(
-                                        criterionId, pageable);
-
-            } else if (evaluatedById != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByEvaluatedBy_UserId(
-                                        evaluatedById, pageable);
-
-            } else if (score != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByScore(
-                                        score, pageable);
-
-            } else if (minScore != null && maxScore != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByScoreBetween(
-                                        minScore, maxScore, pageable);
-
-            } else if (minScore != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByScoreGreaterThanEqual(
-                                        minScore, pageable);
-
-            } else if (maxScore != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByScoreLessThanEqual(
-                                        maxScore, pageable);
-
-            } else if (comments != null && !comments.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByCommentsContainingIgnoreCase(
-                                        comments, pageable);
-
-            } else if (evaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByEvaluationDate(
-                                        evaluationDate, pageable);
-
-            } else if (minEvaluationDate != null && maxEvaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByEvaluationDateBetween(minEvaluationDate,
-                                        maxEvaluationDate, pageable);
-
-            } else if (minEvaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByEvaluationDateGreaterThanEqual(
-                                        minEvaluationDate, pageable);
-
-            } else if (maxEvaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByEvaluationDateLessThanEqual(
-                                        maxEvaluationDate, pageable);
-
-            } else if (studentUsername != null && !studentUsername.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_User_UsernameContainingIgnoreCase(
-                                        studentUsername, pageable);
-
-            } else if (studentFullName != null && !studentFullName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_User_FullNameContainingIgnoreCase(
-                                        studentFullName, pageable);
-
-            } else if (studentEmail != null && !studentEmail.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_User_EmailContainingIgnoreCase(
-                                        studentEmail, pageable);
-
-            } else if (studentPhoneNumber != null
-                    && !studentPhoneNumber.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_User_PhoneNumberContainingIgnoreCase(
-                                        studentPhoneNumber, pageable);
-
-            } else if (mentorUsername != null && !mentorUsername.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_User_UsernameContainingIgnoreCase(
-                                        mentorUsername, pageable);
-
-            } else if (mentorFullName != null && !mentorFullName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_User_FullNameContainingIgnoreCase(
-                                        mentorFullName, pageable);
-
-            } else if (mentorEmail != null && !mentorEmail.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_User_EmailContainingIgnoreCase(
-                                        mentorEmail, pageable);
-
-            } else if (mentorPhoneNumber != null && !mentorPhoneNumber.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_User_PhoneNumberContainingIgnoreCase(
-                                        mentorPhoneNumber, pageable);
-
-            } else if (phaseName != null && !phaseName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Phase_PhaseNameContainingIgnoreCase(
-                                        phaseName, pageable);
-
-            } else if (roundName != null && !roundName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByRound_RoundNameContainingIgnoreCase(
-                                        roundName, pageable);
-
-            } else if (criterionName != null && !criterionName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByCriterion_CriterionNameContainingIgnoreCase(
-                                        criterionName, pageable);
-
-            } else if (evaluatedByUsername != null
-                    && !evaluatedByUsername.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByEvaluatedBy_UsernameContainingIgnoreCase(
-                                        evaluatedByUsername, pageable);
-
-            } else if (evaluatedByFullName != null
-                    && !evaluatedByFullName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByEvaluatedBy_FullNameContainingIgnoreCase(
-                                        evaluatedByFullName, pageable);
-
-            } else if (evaluatedByEmail != null && !evaluatedByEmail.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByEvaluatedBy_EmailContainingIgnoreCase(
-                                        evaluatedByEmail, pageable);
-
-            } else if (evaluatedByPhoneNumber != null
-                    && !evaluatedByPhoneNumber.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByEvaluatedBy_PhoneNumberContainingIgnoreCase(
-                                        evaluatedByPhoneNumber, pageable);
-
-            } else {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAll(pageable);
-            }
-        } else if (currentUser.getRole() == UserRole.MENTOR) {
-
-            Mentor mentor =
-                    mentorRepository
-                            .findByUser_UserId(currentUser.getUserId())
-                            .orElseThrow(() ->
-                                    new EntityNotFoundException(
-                                            "User ID = "
-                                                    + currentUser.getUserId()
-                                                    + " chưa được liên kết với role MENTOR"));
-
-            if (assignmentId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_AssignmentId(
-                                        mentor.getMentorId(),
-                                        assignmentId, pageable);
-
-            } else if (studentId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_StudentId(
-                                        mentor.getMentorId(),
-                                        studentId, pageable);
-
-            } else if (phaseId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Phase_PhaseId(
-                                        mentor.getMentorId(),
-                                        phaseId, pageable);
-
-            } else if (assignmentStatus != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Status(
-                                        mentor.getMentorId(),
-                                        assignmentStatus, pageable);
-
-            } else if (roundId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndRound_RoundId(
-                                        mentor.getMentorId(),
-                                        roundId, pageable);
-
-            } else if (criterionId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndCriterion_CriterionId(
-                                        mentor.getMentorId(),
-                                        criterionId, pageable);
-
-            } else if (evaluatedById != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_UserId(
-                                        mentor.getMentorId(),
-                                        evaluatedById, pageable);
-
-            } else if (score != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndScore(
-                                        mentor.getMentorId(),
-                                        score, pageable);
-
-            } else if (minScore != null && maxScore != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndScoreBetween(
-                                        mentor.getMentorId(),
-                                        minScore, maxScore, pageable);
-
-            } else if (minScore != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndScoreGreaterThanEqual(
-                                        mentor.getMentorId(),
-                                        minScore, pageable);
-
-            } else if (maxScore != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndScoreLessThanEqual(
-                                        mentor.getMentorId(),
-                                        maxScore, pageable);
-
-            } else if (comments != null && !comments.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndCommentsContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        comments, pageable);
-
-            } else if (evaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndEvaluationDate(
-                                        mentor.getMentorId(),
-                                        evaluationDate, pageable);
-
-            } else if (minEvaluationDate != null && maxEvaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndEvaluationDateBetween(
-                                        mentor.getMentorId(), minEvaluationDate,
-                                        maxEvaluationDate, pageable);
-
-            } else if (minEvaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndEvaluationDateGreaterThanEqual(
-                                        mentor.getMentorId(),
-                                        minEvaluationDate, pageable);
-
-            } else if (maxEvaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndEvaluationDateLessThanEqual(
-                                        mentor.getMentorId(),
-                                        maxEvaluationDate, pageable);
-
-            } else if (studentUsername != null && !studentUsername.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_User_UsernameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        studentUsername, pageable);
-
-            } else if (studentFullName != null && !studentFullName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_User_FullNameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        studentFullName, pageable);
-
-            } else if (studentEmail != null && !studentEmail.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_User_EmailContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        studentEmail, pageable);
-
-            } else if (studentPhoneNumber != null
-                    && !studentPhoneNumber.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_User_PhoneNumberContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        studentPhoneNumber, pageable);
-
-            } else if (mentorUsername != null && !mentorUsername.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Mentor_User_UsernameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        mentorUsername, pageable);
-
-            } else if (mentorFullName != null && !mentorFullName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Mentor_User_FullNameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        mentorFullName, pageable);
-
-            } else if (mentorEmail != null && !mentorEmail.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Mentor_User_EmailContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        mentorEmail, pageable);
-
-            } else if (mentorPhoneNumber != null && !mentorPhoneNumber.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Mentor_User_PhoneNumberContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        mentorPhoneNumber, pageable);
-
-            } else if (phaseName != null && !phaseName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndAssignment_Phase_PhaseNameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        phaseName, pageable);
-
-            } else if (roundName != null && !roundName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndRound_RoundNameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        roundName, pageable);
-
-            } else if (criterionName != null && !criterionName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndCriterion_CriterionNameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        criterionName, pageable);
-
-            } else if (evaluatedByUsername != null
-                    && !evaluatedByUsername.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_UsernameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        evaluatedByUsername, pageable);
-
-            } else if (evaluatedByFullName != null
-                    && !evaluatedByFullName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_FullNameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        evaluatedByFullName, pageable);
-
-            } else if (evaluatedByEmail != null
-                    && !evaluatedByEmail.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_EmailContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        evaluatedByEmail, pageable);
-
-            } else if (evaluatedByPhoneNumber != null
-                    && !evaluatedByPhoneNumber.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_PhoneNumberContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        evaluatedByPhoneNumber, pageable);
-
-            } else {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Mentor_MentorId(
-                                        mentor.getMentorId(), pageable);
-            }
-        } else {
-
-            Student student =
-                    studentRepository
-                            .findByUser_UserId(currentUser.getUserId())
-                            .orElseThrow(() ->
-                                    new EntityNotFoundException(
-                                            "User ID = "
-                                                    + currentUser.getUserId()
-                                                    + " chưa được liên kết với role STUDENT"));
-
-            if (assignmentId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_AssignmentId(
-                                        student.getStudentId(), assignmentId, pageable);
-
-            } else if (mentorId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_MentorId(
-                                        student.getStudentId(),
-                                        mentorId, pageable);
-
-            } else if (phaseId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Phase_PhaseId(
-                                        student.getStudentId(),
-                                        phaseId, pageable);
-
-            } else if (assignmentStatus != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Status(
-                                        student.getStudentId(),
-                                        assignmentStatus, pageable);
-
-            } else if (roundId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndRound_RoundId(
-                                        student.getStudentId(),
-                                        roundId, pageable);
-
-            } else if (criterionId != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndCriterion_CriterionId(
-                                        student.getStudentId(),
-                                        criterionId, pageable);
-
-            } else if (evaluatedById != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndEvaluatedBy_UserId(
-                                        student.getStudentId(),
-                                        evaluatedById, pageable);
-
-            } else if (score != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndScore(
-                                        student.getStudentId(),
-                                        score, pageable);
-
-            } else if (minScore != null && maxScore != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndScoreBetween(
-                                        student.getStudentId(),
-                                        minScore, maxScore, pageable);
-
-            } else if (minScore != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndScoreGreaterThanEqual(
-                                        student.getStudentId(),
-                                        minScore, pageable);
-
-            } else if (maxScore != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndScoreLessThanEqual(
-                                        student.getStudentId(),
-                                        maxScore, pageable);
-
-            } else if (comments != null && !comments.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndCommentsContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        comments, pageable);
-
-            } else if (evaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndEvaluationDate(
-                                        student.getStudentId(),
-                                        evaluationDate, pageable);
-
-            } else if (minEvaluationDate != null && maxEvaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndEvaluationDateBetween(
-                                        student.getStudentId(), minEvaluationDate,
-                                        maxEvaluationDate, pageable);
-
-            } else if (minEvaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndEvaluationDateGreaterThanEqual(
-                                        student.getStudentId(),
-                                        minEvaluationDate, pageable);
-
-            } else if (maxEvaluationDate != null) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndEvaluationDateLessThanEqual(
-                                        student.getStudentId(),
-                                        maxEvaluationDate, pageable);
-
-            } else if (studentUsername != null && !studentUsername.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Student_User_UsernameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        studentUsername, pageable);
-
-            } else if (studentFullName != null && !studentFullName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Student_User_FullNameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        studentFullName, pageable);
-
-            } else if (studentEmail != null && !studentEmail.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Student_User_EmailContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        studentEmail, pageable);
-
-            } else if (studentPhoneNumber != null
-                    && !studentPhoneNumber.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Student_User_PhoneNumberContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        studentPhoneNumber, pageable);
-
-            } else if (mentorUsername != null && !mentorUsername.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_User_UsernameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        mentorUsername, pageable);
-
-            } else if (mentorFullName != null && !mentorFullName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_User_FullNameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        mentorFullName, pageable);
-
-            } else if (mentorEmail != null && !mentorEmail.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_User_EmailContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        mentorEmail, pageable);
-
-            } else if (mentorPhoneNumber != null && !mentorPhoneNumber.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_User_PhoneNumberContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        mentorPhoneNumber, pageable);
-
-            } else if (phaseName != null && !phaseName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndAssignment_Phase_PhaseNameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        phaseName, pageable);
-
-            } else if (roundName != null && !roundName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndRound_RoundNameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        roundName, pageable);
-
-            } else if (criterionName != null && !criterionName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndCriterion_CriterionNameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        criterionName, pageable);
-
-            } else if (evaluatedByUsername != null
-                    && !evaluatedByUsername.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndEvaluatedBy_UsernameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        evaluatedByUsername, pageable);
-
-            } else if (evaluatedByFullName != null
-                    && !evaluatedByFullName.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndEvaluatedBy_FullNameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        evaluatedByFullName, pageable);
-
-            } else if (evaluatedByEmail != null
-                    && !evaluatedByEmail.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndEvaluatedBy_EmailContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        evaluatedByEmail, pageable);
-
-            } else if (evaluatedByPhoneNumber != null
-                    && !evaluatedByPhoneNumber.isBlank()) {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentIdAndEvaluatedBy_PhoneNumberContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        evaluatedByPhoneNumber, pageable);
-
-            } else {
-
-                resultPage =
-                        assessmentResultRepository
-                                .findAllByAssignment_Student_StudentId(
-                                        student.getStudentId(),
-                                        pageable);
-            }
+            default -> throw new ForbiddenException(
+                    "không được phép truy cập");
         }
 
         List<AssessmentResultResponse> items =
@@ -954,8 +955,8 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                         .toList();
 
         Pagination pagination = Pagination.builder()
-                .currentPage(page)
-                .pageSize(size)
+                .currentPage(filter.getPage())
+                .pageSize(filter.getSize())
                 .totalPages(resultPage.getTotalPages())
                 .totalItems(resultPage.getTotalElements())
                 .build();
@@ -972,67 +973,34 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         AssessmentResult result =
                 assessmentResultRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy AssessmentResult với ID = "
                                                 + id));
 
         User currentUser = getCurrentUser();
 
-        if (currentUser.getRole() == UserRole.ADMIN) {
+        switch (currentUser.getRole()) {
 
-            return assessmentResultMapper.toResponse(result);
-        }
-
-        if (currentUser.getRole() == UserRole.MENTOR) {
-
-            Mentor mentor =
-                    mentorRepository.findByUser_UserId(
-                                    currentUser.getUserId())
-                            .orElseThrow(() ->
-                                    new EntityNotFoundException(
-                                            "User ID = "
-                                                    + currentUser.getUserId()
-                                                    + " chưa được liên kết với role MENTOR"));
-
-            if (!result.getAssignment()
-                    .getMentor()
-                    .getMentorId()
-                    .equals(mentor.getMentorId())) {
-
-                throw new AccessDeniedException(
-                        "Mentor ID = "
-                                + mentor.getMentorId()
-                                + " không có quyền xem AssessmentResult ID = "
-                                + result.getResultId());
+            case ADMIN -> {
+                return toResponse(result);
             }
 
-            return assessmentResultMapper.toResponse(result);
+            case MENTOR -> {
+                checkMentorPermission(result, currentUser);
+                return toResponse(result);
+            }
+
+            case STUDENT -> {
+                checkStudentPermission(result, currentUser);
+                return toResponse(result);
+
+            }
+
+            default -> throw new ForbiddenException(
+                    "Role " + currentUser.getRole() + " không có quyền truy cập AssessmentResult");
         }
-
-        Student student =
-                studentRepository.findByUser_UserId(
-                                currentUser.getUserId()
-                        )
-                        .orElseThrow(() ->
-                                new EntityNotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role STUDENT"));
-
-        if (!result.getAssignment()
-                .getStudent()
-                .getStudentId()
-                .equals(student.getStudentId())) {
-
-            throw new AccessDeniedException(
-                    "Student ID = "
-                            + student.getStudentId()
-                            + " không có quyền xem AssessmentResult ID = "
-                            + result.getResultId());
-        }
-
-        return assessmentResultMapper.toResponse(result);
     }
+
 
     @Override
     public AssessmentResultResponse createResult(
@@ -1044,7 +1012,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         InternshipAssignment assignment =
                 internshipAssignmentRepository.findById(request.getAssignmentId())
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy InternshipAssignment với ID = "
                                                 + request.getAssignmentId()));
 
@@ -1052,7 +1020,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         Mentor mentor =
                 mentorRepository.findByUser_UserId(currentUser.getUserId())
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "User ID = "
                                                 + currentUser.getUserId()
                                                 + " chưa được liên kết với role MENTOR"));
@@ -1060,7 +1028,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         if (!assignment.getMentor().getMentorId()
                 .equals(mentor.getMentorId())) {
 
-            throw new AccessDeniedException(
+            throw new ForbiddenException(
                     "Mentor ID = "
                             + mentor.getMentorId()
                             + " không được phân công cho Assignment ID = "
@@ -1070,7 +1038,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         AssessmentRound round =
                 assessmentRoundRepository.findById(request.getRoundId())
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy AssessmentRound với ID = "
                                                 + request.getRoundId()));
 
@@ -1079,7 +1047,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                                 request.getCriterionId()
                         )
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy EvaluationCriteria với ID = "
                                                 + request.getCriterionId()));
 
@@ -1090,7 +1058,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                         round.getRoundId(),
                         criterion.getCriterionId())) {
 
-            throw new IllegalStateException(
+            throw new ConflictException(
                     "AssessmentResult already exists with: "
                             + " assignmentId =" + assignment.getAssignmentId()
                             + ", roundId =" + round.getRoundId()
@@ -1128,7 +1096,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         AssessmentResult result =
                 assessmentResultRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy AssessmentResult với ID = "
                                                 + id));
 
@@ -1136,7 +1104,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         if (!result.getEvaluatedBy().getUserId()
                 .equals(currentUser.getUserId())) {
 
-            throw new AccessDeniedException(
+            throw new ForbiddenException(
                     "User ID = "
                             + currentUser.getUserId()
                             + " không có quyền cập nhật AssessmentResult ID = "
@@ -1144,6 +1112,8 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         }
 
         assessmentResultMapper.updateEntityFromDto(request, result);
+
+        result.setEvaluationDate(LocalDateTime.now());
 
         result.setUpdatedAt(LocalDateTime.now());
 
@@ -1161,7 +1131,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         AssessmentResult result =
                 assessmentResultRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy AssessmentResult với ID = "
                                                 + id));
 
@@ -1169,7 +1139,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         if (!result.getEvaluatedBy().getUserId()
                 .equals(currentUser.getUserId())) {
 
-            throw new AccessDeniedException(
+            throw new ForbiddenException(
                     "User ID = "
                             + currentUser.getUserId()
                             + " không có quyền xóa AssessmentResult ID = "

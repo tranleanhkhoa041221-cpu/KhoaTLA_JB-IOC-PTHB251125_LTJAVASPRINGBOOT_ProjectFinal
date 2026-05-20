@@ -1,6 +1,7 @@
 package ra.edu.service;
 
 import ra.edu.dto.request.InternshipAssignmentCreateRequest;
+import ra.edu.dto.request.InternshipAssignmentFilterRequest;
 import ra.edu.dto.request.InternshipAssignmentUpdateRequest;
 import ra.edu.dto.request.InternshipAssignmentUpdateStatusRequest;
 import ra.edu.dto.response.InternshipAssignmentResponse;
@@ -12,23 +13,7 @@ import java.time.LocalDateTime;
 public interface InternshipAssignmentService {
 
     PaginationResponse<InternshipAssignmentResponse> getAllAssignments(
-            int page,
-            int size,
-            Long studentId,
-            Long mentorId,
-            Long phaseId,
-            String studentUsername,
-            String mentorUsername,
-            String studentFullName,
-            String mentorFullName,
-            String studentEmail,
-            String mentorEmail,
-            String studentPhoneNumber,
-            String mentorPhoneNumber,
-            InternshipAssignmentsStatus status,
-            LocalDateTime assignedDate,
-            LocalDateTime minAssignedDate,
-            LocalDateTime maxAssignedDate);
+            InternshipAssignmentFilterRequest filter);
 
     InternshipAssignmentResponse getAssignmentById(Long id);
 

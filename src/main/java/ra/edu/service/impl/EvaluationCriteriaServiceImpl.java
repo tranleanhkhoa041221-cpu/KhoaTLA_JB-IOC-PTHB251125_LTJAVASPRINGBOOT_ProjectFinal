@@ -1,6 +1,5 @@
 package ra.edu.service.impl;
 
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -9,15 +8,19 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.EvaluationCriteriaCreateRequest;
+import ra.edu.dto.request.EvaluationCriteriaFilterRequest;
 import ra.edu.dto.request.EvaluationCriteriaUpdateRequest;
 import ra.edu.dto.response.EvaluationCriteriaResponse;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.entity.EvaluationCriteria;
+import ra.edu.exception.BadRequestException;
+import ra.edu.exception.ConflictException;
+import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.EvaluationCriteriaMapper;
 import ra.edu.repository.EvaluationCriteriaRepository;
 import ra.edu.service.EvaluationCriteriaService;
 
-import java.math.BigDecimal;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -31,105 +34,133 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
 
     @Override
     public PaginationResponse<EvaluationCriteriaResponse> getAllCriteria(
-            int page,
-            int size,
-            String criterionName,
-            String description,
-            BigDecimal maxScore,
-            BigDecimal minMaxScore,
-            BigDecimal maxMaxScore) {
+            EvaluationCriteriaFilterRequest request) {
 
-        if (minMaxScore != null && maxMaxScore != null
-                && minMaxScore.compareTo(maxMaxScore) > 0) {
-            throw new IllegalArgumentException("minMaxScore không được lớn hơn maxMaxScore");
+        if (request.getMinMaxScore() != null && request.getMaxMaxScore() != null
+                && request.getMinMaxScore()
+                .compareTo(request.getMaxMaxScore()) > 0) {
 
+            throw new BadRequestException(
+                    "minMaxScore không được lớn hơn maxMaxScore");
         }
 
         Pageable pageable = PageRequest.of(
-                page - 1,
-                size,
+                request.getPage() - 1,
+                request.getSize(),
                 Sort.by("criterionId").descending());
 
         Page<EvaluationCriteria> criteriaPage;
 
-        if (criterionName != null && !criterionName.isBlank()) {
+        if (request.getCriterionName() != null
+                && !request.getCriterionName().isBlank()) {
 
             criteriaPage =
                     evaluationCriteriaRepository
-                            .findAllByCriterionNameContainingIgnoreCase
-                                    (criterionName, pageable);
+                            .findAllByCriterionNameContainingIgnoreCase(
+                                    request.getCriterionName(),
+                                    pageable);
 
-        } else if (description != null && !description.isBlank()) {
-
-            criteriaPage =
-                    evaluationCriteriaRepository
-                            .findAllByDescriptionContainingIgnoreCase
-                                    (description, pageable);
-
-        } else if (maxScore != null) {
+        } else if (request.getDescription() != null
+                && !request.getDescription().isBlank()) {
 
             criteriaPage =
                     evaluationCriteriaRepository
-                            .findAllByMaxScore(maxScore, pageable);
+                            .findAllByDescriptionContainingIgnoreCase(
+                                    request.getDescription(),
+                                    pageable);
 
-        } else if (minMaxScore != null && maxMaxScore != null) {
+        } else if (request.getMaxScore() != null) {
 
-            criteriaPage = evaluationCriteriaRepository
-                    .findAllByMaxScoreBetween(minMaxScore, maxMaxScore, pageable);
+            criteriaPage =
+                    evaluationCriteriaRepository
+                            .findAllByMaxScore(
+                                    request.getMaxScore(),
+                                    pageable);
 
-        } else if (minMaxScore != null) {
+        } else if (request.getMinMaxScore() != null
+                && request.getMaxMaxScore() != null) {
 
-            criteriaPage = evaluationCriteriaRepository
-                    .findAllByMaxScoreGreaterThanEqual(minMaxScore, pageable);
+            criteriaPage =
+                    evaluationCriteriaRepository
+                            .findAllByMaxScoreBetween(
+                                    request.getMinMaxScore(),
+                                    request.getMaxMaxScore(),
+                                    pageable);
 
-        } else if (maxMaxScore != null) {
-            criteriaPage = evaluationCriteriaRepository
-                    .findAllByMaxScoreLessThanEqual(maxMaxScore, pageable);
+        } else if (request.getMinMaxScore() != null) {
+
+            criteriaPage =
+                    evaluationCriteriaRepository
+                            .findAllByMaxScoreGreaterThanEqual(
+                                    request.getMinMaxScore(),
+                                    pageable);
+
+        } else if (request.getMaxMaxScore() != null) {
+
+            criteriaPage =
+                    evaluationCriteriaRepository
+                            .findAllByMaxScoreLessThanEqual(
+                                    request.getMaxMaxScore(),
+                                    pageable);
 
         } else {
 
-            criteriaPage = evaluationCriteriaRepository
-                    .findAll(pageable);
+            criteriaPage =
+                    evaluationCriteriaRepository
+                            .findAll(pageable);
         }
 
-        List<EvaluationCriteriaResponse> items = criteriaPage.getContent()
-                .stream()
-                .map(evaluationCriteriaMapper::toResponse)
-                .toList();
+        List<EvaluationCriteriaResponse> items =
+                criteriaPage.getContent()
+                        .stream()
+                        .map(evaluationCriteriaMapper::toResponse)
+                        .toList();
 
         Pagination pagination = Pagination.builder()
-                .currentPage(page)
-                .pageSize(size)
+                .currentPage(request.getPage())
+                .pageSize(request.getSize())
                 .totalPages(criteriaPage.getTotalPages())
                 .totalItems(criteriaPage.getTotalElements())
                 .build();
 
-        return PaginationResponse.<EvaluationCriteriaResponse>builder()
+        return PaginationResponse
+                .<EvaluationCriteriaResponse>builder()
                 .items(items)
                 .pagination(pagination)
                 .build();
     }
 
+
     @Override
     public EvaluationCriteriaResponse getCriterionById(Long id) {
 
-        EvaluationCriteria criteria = evaluationCriteriaRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy tiêu chí đánh giá với ID = " + id));
+        EvaluationCriteria criteria =
+                evaluationCriteriaRepository.findById(id)
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "Không tìm thấy tiêu chí đánh giá với ID = "
+                                                + id));
 
         return evaluationCriteriaMapper.toResponse(criteria);
     }
 
     @Override
-    public EvaluationCriteriaResponse createCriterion(EvaluationCriteriaCreateRequest request) {
+    public EvaluationCriteriaResponse createCriterion(
+            EvaluationCriteriaCreateRequest request) {
 
-        if (evaluationCriteriaRepository.existsByCriterionNameIgnoreCase(request.getCriterionName())) {
+        if (evaluationCriteriaRepository
+                .existsByCriterionNameIgnoreCase(
+                        request.getCriterionName())) {
 
-            throw new IllegalStateException("Tên tiêu chí đánh giá đã tồn tại");
+            throw new ConflictException(
+                    "Tên tiêu chí đánh giá đã tồn tại");
         }
 
-        EvaluationCriteria criteria = evaluationCriteriaMapper.toEntity(request);
+        EvaluationCriteria criteria =
+                evaluationCriteriaMapper.toEntity(request);
 
         criteria.setCreatedAt(LocalDateTime.now());
+
         criteria.setUpdatedAt(LocalDateTime.now());
 
         evaluationCriteriaRepository.save(criteria);
@@ -138,10 +169,16 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
     }
 
     @Override
-    public EvaluationCriteriaResponse updateCriterion(Long id, EvaluationCriteriaUpdateRequest request) {
+    public EvaluationCriteriaResponse updateCriterion(
+            Long id,
+            EvaluationCriteriaUpdateRequest request) {
 
-        EvaluationCriteria criteria = evaluationCriteriaRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy tiêu chí đánh giá với ID = " + id));
+        EvaluationCriteria criteria =
+                evaluationCriteriaRepository.findById(id)
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "Không tìm thấy tiêu chí đánh giá với ID = "
+                                                + id));
 
         boolean used =
                 (criteria.getRoundCriteria() != null
@@ -150,26 +187,35 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
                         && !criteria.getAssessmentResults().isEmpty());
 
         if (request.getCriterionName() != null
-                && !request.getCriterionName().equalsIgnoreCase(criteria.getCriterionName())) {
+                && !request.getCriterionName()
+                .equalsIgnoreCase(criteria.getCriterionName())) {
 
             if (used) {
 
-                throw new IllegalStateException("Tiêu chí đánh giá đã được sử dụng, không thể thay đổi tên tiêu chí đánh giá");
+                throw new ConflictException(
+                        "Tiêu chí đánh giá đã được sử dụng, không thể thay đổi tên tiêu chí đánh giá");
             }
 
-            if (evaluationCriteriaRepository.existsByCriterionNameIgnoreCase(request.getCriterionName())) {
+            if (evaluationCriteriaRepository
+                    .existsByCriterionNameIgnoreCase(
+                            request.getCriterionName())) {
 
-                throw new IllegalStateException("Tên tiêu chí đánh giá đã tồn tại");
+                throw new ConflictException(
+                        "Tên tiêu chí đánh giá đã tồn tại");
             }
         }
 
         if (request.getMaxScore() != null
-                && request.getMaxScore().compareTo(criteria.getMaxScore()) != 0 && used) {
+                && request.getMaxScore()
+                .compareTo(criteria.getMaxScore()) != 0
+                && used) {
 
-            throw new IllegalStateException("Tiêu chí đánh giá đã được sử dụng, không thể thay đổi điểm tối đa");
+            throw new ConflictException(
+                    "Tiêu chí đánh giá đã được sử dụng, không thể thay đổi điểm tối đa");
         }
 
-        evaluationCriteriaMapper.updateEntityFromDto(request, criteria);
+        evaluationCriteriaMapper
+                .updateEntityFromDto(request, criteria);
 
         criteria.setUpdatedAt(LocalDateTime.now());
 
@@ -178,22 +224,33 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
         return evaluationCriteriaMapper.toResponse(criteria);
     }
 
+
     @Override
     public EvaluationCriteriaResponse deleteCriterion(Long id) {
 
-        EvaluationCriteria criteria = evaluationCriteriaRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy tiêu chí đánh giá với ID = " + id));
+        EvaluationCriteria criteria =
+                evaluationCriteriaRepository.findById(id)
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "Không tìm thấy tiêu chí đánh giá với ID = "
+                                                + id));
 
         if (criteria.getRoundCriteria() != null
                 && !criteria.getRoundCriteria().isEmpty()) {
 
-            throw new IllegalStateException("Không thể xóa tiêu chí đánh giá ID = " + id + " vì đã liên kết với RoundCriteria");
+            throw new ConflictException(
+                    "Không thể xóa tiêu chí đánh giá ID = "
+                            + id
+                            + " vì đã liên kết với RoundCriteria");
         }
 
         if (criteria.getAssessmentResults() != null
                 && !criteria.getAssessmentResults().isEmpty()) {
 
-            throw new IllegalStateException("Không thể xóa tiêu chí đánh giá ID = " + id + " vì đã liên kết với AssessmentResult");
+            throw new ConflictException(
+                    "Không thể xóa tiêu chí đánh giá ID = "
+                            + id
+                            + " vì đã liên kết với AssessmentResult");
         }
 
         EvaluationCriteriaResponse response =

@@ -1,68 +1,32 @@
 package ra.edu.controller;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ra.edu.dto.request.EvaluationCriteriaCreateRequest;
+import ra.edu.dto.request.EvaluationCriteriaFilterRequest;
 import ra.edu.dto.request.EvaluationCriteriaUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
 import ra.edu.service.EvaluationCriteriaService;
 
-import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/evaluation-criteria")
 @RequiredArgsConstructor
-@Validated
 public class EvaluationCriteriaController {
 
     private final EvaluationCriteriaService evaluationCriteriaService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAll(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String criterionName,
-            @RequestParam(required = false) String description,
-            @RequestParam(required = false)
-            @DecimalMin(
-                    value = "0.0",
-                    inclusive = false,
-                    message = "maxScore phải lớn hơn 0")
-            @DecimalMax(
-                    value = "10.0",
-                    inclusive = true,
-                    message = "maxScore phải nhỏ hơn hoặc bằng 10")
-            BigDecimal maxScore,
-            @RequestParam(required = false)
-            @DecimalMin(
-                    value = "0.0",
-                    inclusive = false,
-                    message = "minMaxScore phải lớn hơn 0")
-            @DecimalMax(
-                    value = "10.0",
-                    inclusive = true,
-                    message = "minMaxScore phải nhỏ hơn hoặc bằng 10")
-            BigDecimal minMaxScore,
-            @RequestParam(required = false)
-            @DecimalMin(
-                    value = "0.0",
-                    inclusive = false,
-                    message = "maxMaxScore phải lớn hơn 0")
-            @DecimalMax(
-                    value = "10.0",
-                    inclusive = true,
-                    message = "maxMaxScore phải nhỏ hơn hoặc bằng 10")
-            BigDecimal maxMaxScore) {
+            @Valid @ModelAttribute EvaluationCriteriaFilterRequest filter) {
 
         return ResponseEntity.ok(
-                ApiResponse.success("Lấy danh sách tiêu chí đánh giá thành công",
-                        evaluationCriteriaService.getAllCriteria(page, size, criterionName, description, maxScore, minMaxScore, maxMaxScore)));
+                ApiResponse.success(
+                        "Lấy danh sách tiêu chí đánh giá thành công",
+                        evaluationCriteriaService.getAllCriteria(filter)));
     }
 
     @GetMapping("/{id}")

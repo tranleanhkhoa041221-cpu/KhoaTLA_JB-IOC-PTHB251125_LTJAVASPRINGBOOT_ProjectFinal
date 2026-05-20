@@ -2,16 +2,15 @@ package ra.edu.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ra.edu.dto.request.AssessmentRoundCreateRequest;
+import ra.edu.dto.request.AssessmentRoundFilterRequest;
 import ra.edu.dto.request.AssessmentRoundUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
 import ra.edu.service.AssessmentRoundService;
 
-import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/assessment-rounds")
@@ -22,31 +21,12 @@ public class AssessmentRoundController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAll(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String roundName,
-            @RequestParam(required = false)
-            @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate startDate,
-            @RequestParam(required = false)
-            @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate endDate,
-            @RequestParam(required = false) String description,
-            @RequestParam(required = false) Long phaseId,
-            @RequestParam(required = false) String phaseName,
-            @RequestParam(required = false) String isActive) {
+            @Valid @ModelAttribute AssessmentRoundFilterRequest filter) {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Lấy danh sách đợt đánh giá thành công",
-                        assessmentRoundService.getAllAssessmentRounds(
-                                page,
-                                size,
-                                roundName,
-                                startDate,
-                                endDate,
-                                description,
-                                phaseId,
-                                phaseName,
-                                isActive)));
+                        assessmentRoundService.getAllAssessmentRounds(filter)));
     }
 
     @GetMapping("/{id}")

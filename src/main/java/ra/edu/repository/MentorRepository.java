@@ -40,29 +40,31 @@ public interface MentorRepository extends JpaRepository<Mentor, Long> {
             Pageable pageable
     );
 
+
     Page<Mentor> findAllByInternshipAssignments_Student_StudentIdAndUser_UsernameContainingIgnoreCase(
-            Long studentId,
+            Long mentorId,
             String username,
             Pageable pageable
     );
 
     Page<Mentor> findAllByInternshipAssignments_Student_StudentIdAndUser_FullNameContainingIgnoreCase(
-            Long studentId,
+            Long mentorId,
             String fullName,
             Pageable pageable
     );
 
     Page<Mentor> findAllByInternshipAssignments_Student_StudentIdAndUser_EmailContainingIgnoreCase(
-            Long studentId,
+            Long mentorId,
             String email,
             Pageable pageable
     );
 
     Page<Mentor> findAllByInternshipAssignments_Student_StudentIdAndUser_PhoneNumberContainingIgnoreCase(
-            Long studentId,
+            Long mentorId,
             String phoneNumber,
             Pageable pageable
     );
+
 
 
     Page<Mentor> findAllByInternshipAssignments_Student_StudentId(

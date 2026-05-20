@@ -1,24 +1,26 @@
 package ra.edu.service.impl;
 
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import ra.edu.config.principal.UserPrincipal;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.MentorCreateRequest;
+import ra.edu.dto.request.MentorFilterRequest;
 import ra.edu.dto.request.MentorUpdateRequest;
 import ra.edu.dto.response.MentorResponse;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.entity.Mentor;
 import ra.edu.entity.User;
 import ra.edu.entity.UserRole;
+import ra.edu.exception.ConflictException;
+import ra.edu.exception.ForbiddenException;
+import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.MentorMapper;
 import ra.edu.repository.InternshipAssignmentRepository;
 import ra.edu.repository.MentorRepository;
@@ -52,87 +54,87 @@ public class MentorServiceImpl implements MentorService {
     }
 
     @Override
-    public PaginationResponse<MentorResponse> getAllMentors(
-            int page,
-            int size,
-            String username,
-            String fullName,
-            String email,
-            String phoneNumber,
-            String department,
-            String academicRank) {
+    public PaginationResponse<MentorResponse> getAllMentors(MentorFilterRequest filter) {
 
         Pageable pageable = PageRequest.of(
-                page - 1,
-                size,
-                Sort.by("mentorId").descending());
+                filter.getPage() - 1,
+                filter.getSize(),
+                Sort.by("mentorId").descending()
+        );
 
         Page<Mentor> mentorPage;
 
-        if (department != null && !department.isBlank()
-                && academicRank != null && !academicRank.isBlank()) {
+        if (filter.getDepartment() != null && !filter.getDepartment().isBlank()
+                && filter.getAcademicRank() != null && !filter.getAcademicRank().isBlank()) {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByDepartmentContainingIgnoreCaseAndAcademicRankContainingIgnoreCase(
-                                    department, academicRank, pageable);
+            mentorPage = mentorRepository
+                    .findAllByDepartmentContainingIgnoreCaseAndAcademicRankContainingIgnoreCase(
+                            filter.getDepartment(),
+                            filter.getAcademicRank(),
+                            pageable
+                    );
 
-        } else if (department != null && !department.isBlank()) {
+        } else if (filter.getDepartment() != null && !filter.getDepartment().isBlank()) {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByDepartmentContainingIgnoreCase(
-                                    department, pageable);
+            mentorPage = mentorRepository
+                    .findAllByDepartmentContainingIgnoreCase(
+                            filter.getDepartment(),
+                            pageable
+                    );
 
-        } else if (academicRank != null && !academicRank.isBlank()) {
+        } else if (filter.getAcademicRank() != null && !filter.getAcademicRank().isBlank()) {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByAcademicRankContainingIgnoreCase(
-                                    academicRank, pageable);
+            mentorPage = mentorRepository
+                    .findAllByAcademicRankContainingIgnoreCase(
+                            filter.getAcademicRank(),
+                            pageable
+                    );
 
-        } else if (username != null && !username.isBlank()) {
+        } else if (filter.getUsername() != null && !filter.getUsername().isBlank()) {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByUser_UsernameContainingIgnoreCase(
-                                    username, pageable);
+            mentorPage = mentorRepository
+                    .findAllByUser_UsernameContainingIgnoreCase(
+                            filter.getUsername(),
+                            pageable
+                    );
 
-        } else if (fullName != null && !fullName.isBlank()) {
+        } else if (filter.getFullName() != null && !filter.getFullName().isBlank()) {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByUser_FullNameContainingIgnoreCase(
-                                    fullName, pageable);
+            mentorPage = mentorRepository
+                    .findAllByUser_FullNameContainingIgnoreCase(
+                            filter.getFullName(),
+                            pageable
+                    );
 
-        } else if (email != null && !email.isBlank()) {
+        } else if (filter.getEmail() != null && !filter.getEmail().isBlank()) {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByUser_EmailContainingIgnoreCase(
-                                    email, pageable);
+            mentorPage = mentorRepository
+                    .findAllByUser_EmailContainingIgnoreCase(
+                            filter.getEmail(),
+                            pageable
+                    );
 
-        } else if (phoneNumber != null && !phoneNumber.isBlank()) {
+        } else if (filter.getPhoneNumber() != null && !filter.getPhoneNumber().isBlank()) {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByUser_PhoneNumberContainingIgnoreCase(
-                                    phoneNumber, pageable);
+            mentorPage = mentorRepository
+                    .findAllByUser_PhoneNumberContainingIgnoreCase(
+                            filter.getPhoneNumber(),
+                            pageable
+                    );
 
         } else {
 
             mentorPage = mentorRepository.findAll(pageable);
         }
 
-        List<MentorResponse> items =
-                mentorPage.getContent()
-                        .stream()
-                        .map(mentorMapper::toResponse)
-                        .toList();
+        List<MentorResponse> items = mentorPage.getContent()
+                .stream()
+                .map(mentorMapper::toResponse)
+                .toList();
 
         Pagination pagination = Pagination.builder()
-                .currentPage(page)
-                .pageSize(size)
+                .currentPage(filter.getPage())
+                .pageSize(filter.getSize())
                 .totalPages(mentorPage.getTotalPages())
                 .totalItems(mentorPage.getTotalElements())
                 .build();
@@ -149,7 +151,7 @@ public class MentorServiceImpl implements MentorService {
         Mentor mentor =
                 mentorRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy Mentor với ID = " + id));
 
         User currentUser = getCurrentUser();
@@ -158,7 +160,7 @@ public class MentorServiceImpl implements MentorService {
 
             if (!mentor.getUser().getUserId().equals(currentUser.getUserId())) {
 
-                throw new AccessDeniedException(
+                throw new ForbiddenException(
                         "Mentor ID = "
                                 + currentUser.getUserId()
                                 + " không có quyền xem Mentor ID = "
@@ -172,98 +174,100 @@ public class MentorServiceImpl implements MentorService {
 
     @Override
     public PaginationResponse<MentorResponse> getAssignedMentors(
-            int page,
-            int size,
-            String username,
-            String fullName,
-            String email,
-            String phoneNumber,
-            String department,
-            String academicRank) {
+            MentorFilterRequest filter) {
 
         User currentUser = getCurrentUser();
 
         Pageable pageable = PageRequest.of(
-                page - 1,
-                size,
-                Sort.by("mentorId").descending());
+                filter.getPage() - 1,
+                filter.getSize(),
+                Sort.by("mentorId").descending()
+        );
 
         Page<Mentor> mentorPage;
 
-        if (department != null && !department.isBlank()
-                && academicRank != null && !academicRank.isBlank()) {
+        if (filter.getDepartment() != null && !filter.getDepartment().isBlank()
+                && filter.getAcademicRank() != null && !filter.getAcademicRank().isBlank()) {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByInternshipAssignments_Student_StudentIdAndDepartmentContainingIgnoreCaseAndAcademicRankContainingIgnoreCase(
-                                    currentUser.getUserId(),
-                                    department, academicRank, pageable);
+            mentorPage = mentorRepository
+                    .findAllByInternshipAssignments_Student_StudentIdAndDepartmentContainingIgnoreCaseAndAcademicRankContainingIgnoreCase(
+                            currentUser.getUserId(),
+                            filter.getDepartment(),
+                            filter.getAcademicRank(),
+                            pageable
+                    );
 
-        } else if (department != null && !department.isBlank()) {
+        } else if (filter.getDepartment() != null && !filter.getDepartment().isBlank()) {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByInternshipAssignments_Student_StudentIdAndDepartmentContainingIgnoreCase(
-                                    currentUser.getUserId(),
-                                    department, pageable);
+            mentorPage = mentorRepository
+                    .findAllByInternshipAssignments_Student_StudentIdAndDepartmentContainingIgnoreCase(
+                            currentUser.getUserId(),
+                            filter.getDepartment(),
+                            pageable
+                    );
 
-        } else if (academicRank != null && !academicRank.isBlank()) {
+        } else if (filter.getAcademicRank() != null && !filter.getAcademicRank().isBlank()) {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByInternshipAssignments_Student_StudentIdAndAcademicRankContainingIgnoreCase(
-                                    currentUser.getUserId(),
-                                    academicRank, pageable);
+            mentorPage = mentorRepository
+                    .findAllByInternshipAssignments_Student_StudentIdAndAcademicRankContainingIgnoreCase(
+                            currentUser.getUserId(),
+                            filter.getAcademicRank(),
+                            pageable
+                    );
+        } else if (filter.getUsername() != null && !filter.getUsername().isBlank()) {
 
-        } else if (username != null && !username.isBlank()) {
+            mentorPage = mentorRepository
+                    .findAllByInternshipAssignments_Student_StudentIdAndUser_UsernameContainingIgnoreCase(
+                            currentUser.getUserId(),
+                            filter.getUsername(),
+                            pageable
+                    );
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByInternshipAssignments_Student_StudentIdAndUser_UsernameContainingIgnoreCase(
-                                    currentUser.getUserId(),
-                                    username, pageable);
+        } else if (filter.getFullName() != null && !filter.getFullName().isBlank()) {
 
-        } else if (fullName != null && !fullName.isBlank()) {
+            mentorPage = mentorRepository
+                    .findAllByInternshipAssignments_Student_StudentIdAndUser_FullNameContainingIgnoreCase(
+                            currentUser.getUserId(),
+                            filter.getFullName(),
+                            pageable
+                    );
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByInternshipAssignments_Student_StudentIdAndUser_FullNameContainingIgnoreCase(
-                                    currentUser.getUserId(),
-                                    fullName, pageable);
+        } else if (filter.getEmail() != null && !filter.getEmail().isBlank()) {
 
-        } else if (email != null && !email.isBlank()) {
+            mentorPage = mentorRepository
+                    .findAllByInternshipAssignments_Student_StudentIdAndUser_EmailContainingIgnoreCase(
+                            currentUser.getUserId(),
+                            filter.getEmail(),
+                            pageable
+                    );
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByInternshipAssignments_Student_StudentIdAndUser_EmailContainingIgnoreCase(
-                                    currentUser.getUserId(),
-                                    email, pageable);
+        } else if (filter.getPhoneNumber() != null && !filter.getPhoneNumber().isBlank()) {
 
-        } else if (phoneNumber != null && !phoneNumber.isBlank()) {
+            mentorPage = mentorRepository
+                    .findAllByInternshipAssignments_Student_StudentIdAndUser_PhoneNumberContainingIgnoreCase(
+                            currentUser.getUserId(),
+                            filter.getPhoneNumber(),
+                            pageable
+                    );
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByInternshipAssignments_Student_StudentIdAndUser_PhoneNumberContainingIgnoreCase(
-                                    currentUser.getUserId(),
-                                    phoneNumber, pageable);
 
         } else {
 
-            mentorPage =
-                    mentorRepository
-                            .findAllByInternshipAssignments_Student_StudentId(
-                                    currentUser.getUserId(), pageable);
+            mentorPage = mentorRepository
+                    .findAllByInternshipAssignments_Student_StudentId(
+                            currentUser.getUserId(),
+                            pageable
+                    );
         }
 
-        List<MentorResponse> items =
-                mentorPage.getContent()
-                        .stream()
-                        .map(mentorMapper::toResponse)
-                        .toList();
+        List<MentorResponse> items = mentorPage.getContent()
+                .stream()
+                .map(mentorMapper::toResponse)
+                .toList();
 
         Pagination pagination = Pagination.builder()
-                .currentPage(page)
-                .pageSize(size)
+                .currentPage(filter.getPage())
+                .pageSize(filter.getSize())
                 .totalPages(mentorPage.getTotalPages())
                 .totalItems(mentorPage.getTotalElements())
                 .build();
@@ -280,7 +284,7 @@ public class MentorServiceImpl implements MentorService {
         Mentor mentor =
                 mentorRepository.findById(mentorId)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy Mentor với ID = "
                                                 + mentorId));
 
@@ -292,7 +296,7 @@ public class MentorServiceImpl implements MentorService {
 
         if (!assigned) {
 
-            throw new AccessDeniedException(
+            throw new ForbiddenException(
                     "Student ID = "
                             + currentUser.getUserId()
                             + " không được phân công cho Mentor ID = "
@@ -308,13 +312,13 @@ public class MentorServiceImpl implements MentorService {
         User user =
                 userRepository.findById(request.getUserId())
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy User với ID = "
                                                 + request.getUserId()));
 
         if (user.getRole() != UserRole.MENTOR) {
 
-            throw new IllegalStateException(
+            throw new ConflictException(
                     "User ID = "
                             + user.getUserId()
                             + " phải có role MENTOR mới được liên kết");
@@ -322,7 +326,7 @@ public class MentorServiceImpl implements MentorService {
 
         if (mentorRepository.existsByUser_UserId(user.getUserId())) {
 
-            throw new IllegalStateException(
+            throw new ConflictException(
                     "User ID = "
                             + user.getUserId()
                             + " đã liên kết với Mentor");
@@ -347,7 +351,7 @@ public class MentorServiceImpl implements MentorService {
         Mentor mentor =
                 mentorRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy Mentor với ID = " + id));
 
         User currentUser = getCurrentUser();
@@ -356,7 +360,7 @@ public class MentorServiceImpl implements MentorService {
 
             if (!mentor.getUser().getUserId().equals(currentUser.getUserId())) {
 
-                throw new AccessDeniedException(
+                throw new ForbiddenException(
                         "Mentor ID = "
                                 + currentUser.getUserId()
                                 + " không có quyền cập nhật Mentor ID = "

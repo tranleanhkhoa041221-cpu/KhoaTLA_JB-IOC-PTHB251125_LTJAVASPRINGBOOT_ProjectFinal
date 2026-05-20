@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ra.edu.dto.request.MentorCreateRequest;
+import ra.edu.dto.request.MentorFilterRequest;
 import ra.edu.dto.request.MentorUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
 import ra.edu.service.MentorService;
@@ -19,18 +20,11 @@ public class MentorController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAll(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String username,
-            @RequestParam(required = false) String fullName,
-            @RequestParam(required = false) String email,
-            @RequestParam(required = false) String phoneNumber,
-            @RequestParam(required = false) String department,
-            @RequestParam(required = false) String academicRank) {
+            @Valid @ModelAttribute MentorFilterRequest filter) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy danh sách mentor thành công",
-                        mentorService.getAllMentors(page, size, username, fullName, email, phoneNumber, department, academicRank)));
+                        mentorService.getAllMentors(filter)));
     }
 
     @GetMapping("/{id}")
@@ -43,18 +37,11 @@ public class MentorController {
 
     @GetMapping("/assigned")
     public ResponseEntity<ApiResponse<?>> getAssigned(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String username,
-            @RequestParam(required = false) String fullName,
-            @RequestParam(required = false) String email,
-            @RequestParam(required = false) String phoneNumber,
-            @RequestParam(required = false) String department,
-            @RequestParam(required = false) String academicRank) {
+            @Valid @ModelAttribute MentorFilterRequest filter) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy danh sách mentor được phân công thành công",
-                        mentorService.getAssignedMentors(page, size, username, fullName, email, phoneNumber, department, academicRank)));
+                        mentorService.getAssignedMentors(filter)));
     }
 
     @GetMapping("/assigned/{id}")

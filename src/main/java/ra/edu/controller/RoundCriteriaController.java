@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ra.edu.dto.request.RoundCriteriaCreateRequest;
+import ra.edu.dto.request.RoundCriteriaFilterRequest;
 import ra.edu.dto.request.RoundCriteriaUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
 import ra.edu.service.RoundCriteriaService;
@@ -25,62 +26,12 @@ public class RoundCriteriaController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAll(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) Long roundId,
-            @RequestParam(required = false) Long criterionId,
-            @RequestParam(required = false) String roundName,
-            @RequestParam(required = false) String criterionName,
-            @RequestParam(required = false)
-            @DecimalMin(
-                    value = "0.0",
-                    inclusive = false,
-                    message = "Weight phải lớn hơn 0"
-            )
-            @DecimalMax(
-                    value = "1.0",
-                    inclusive = true,
-                    message = "Weight phải nhỏ hơn hoặc bằng 1"
-            )
-            BigDecimal weight,
-            @RequestParam(required = false)
-            @DecimalMin(
-                    value = "0.0",
-                    inclusive = false,
-                    message = "minWeight phải lớn hơn 0"
-            )
-            @DecimalMax(
-                    value = "1.0",
-                    inclusive = true,
-                    message = "minWeight phải nhỏ hơn hoặc bằng 1"
-            )
-            BigDecimal minWeight,
-            @RequestParam(required = false)
-            @DecimalMin(
-                    value = "0.0",
-                    inclusive = false,
-                    message = "maxWeight phải lớn hơn 0"
-            )
-            @DecimalMax(
-                    value = "1.0",
-                    inclusive = true,
-                    message = "maxWeight phải nhỏ hơn hoặc bằng 1"
-            )
-            BigDecimal maxWeight) {
+            @Valid @ModelAttribute RoundCriteriaFilterRequest filter) {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Lấy danh sách tiêu chí trong đợt đánh giá thành công",
-                        roundCriteriaService.getAllRoundCriteria(
-                                page,
-                                size,
-                                roundId,
-                                criterionId,
-                                roundName,
-                                criterionName,
-                                weight,
-                                minWeight,
-                                maxWeight)));
+                        roundCriteriaService.getAllRoundCriteria(filter)));
     }
 
     @GetMapping("/{id}")

@@ -1,6 +1,5 @@
 package ra.edu.service.impl;
 
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -9,11 +8,15 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.AssessmentRoundCreateRequest;
+import ra.edu.dto.request.AssessmentRoundFilterRequest;
 import ra.edu.dto.request.AssessmentRoundUpdateRequest;
 import ra.edu.dto.response.AssessmentRoundResponse;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.entity.AssessmentRound;
 import ra.edu.entity.InternshipPhase;
+import ra.edu.exception.BadRequestException;
+import ra.edu.exception.ConflictException;
+import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.AssessmentRoundMapper;
 import ra.edu.repository.AssessmentRoundRepository;
 import ra.edu.repository.InternshipPhaseRepository;
@@ -35,144 +38,199 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
 
     @Override
     public PaginationResponse<AssessmentRoundResponse> getAllAssessmentRounds(
-            int page,
-            int size,
-            String roundName,
-            LocalDate startDate,
-            LocalDate endDate,
-            String description,
-            Long phaseId,
-            String phaseName,
-            String isActive) {
+            AssessmentRoundFilterRequest request) {
 
-        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+        if (request.getStartDate() != null
+                && request.getEndDate() != null
+                && request.getStartDate()
+                .isAfter(request.getEndDate())) {
 
-            throw new IllegalArgumentException("Ngày bắt đầu đợt đánh giá không được sau ngày kết thúc đợt đánh giá");
+            throw new BadRequestException(
+                    "Ngày bắt đầu đợt đánh giá không được sau ngày kết thúc đợt đánh giá");
         }
 
-        if (phaseId != null && !internshipPhaseRepository.existsById(phaseId)) {
+        if (request.getPhaseId() != null
+                && !internshipPhaseRepository
+                .existsById(request.getPhaseId())) {
 
-            throw new EntityNotFoundException("Không tìm thấy Phase với ID = " + phaseId);
+            throw new NotFoundException(
+                    "Không tìm thấy Phase với ID = "
+                            + request.getPhaseId());
         }
 
         Boolean active = null;
 
-        if (isActive != null && !isActive.isBlank()) {
+        if (request.getIsActive() != null && !request.getIsActive().isBlank()) {
 
-            if (!isActive.equalsIgnoreCase("true")
-                    && !isActive.equalsIgnoreCase("false")) {
+            if (!request.getIsActive().equalsIgnoreCase("true")
+                    && !request.getIsActive().equalsIgnoreCase("false")) {
 
-                throw new IllegalArgumentException(
+                throw new BadRequestException(
                         "isActive không hợp lệ. Chỉ được true hoặc false");
             }
 
-            active = Boolean.parseBoolean(isActive);
+            active = Boolean.parseBoolean(request.getIsActive());
         }
 
+
         Pageable pageable = PageRequest.of(
-                page - 1,
-                size,
+                request.getPage() - 1,
+                request.getSize(),
                 Sort.by("roundId").descending());
 
         Page<AssessmentRound> roundPage;
 
-        if (roundName != null && !roundName.isBlank()) {
+        if (request.getRoundName() != null
+                && !request.getRoundName().isBlank()) {
 
-            roundPage = assessmentRoundRepository
-                    .findAllByRoundNameContainingIgnoreCase(roundName, pageable);
+            roundPage =
+                    assessmentRoundRepository
+                            .findAllByRoundNameContainingIgnoreCase(
+                                    request.getRoundName(),
+                                    pageable);
 
-        } else if (startDate != null && endDate != null) {
+        } else if (request.getStartDate() != null
+                && request.getEndDate() != null) {
 
-            roundPage = assessmentRoundRepository
-                    .findAllByStartDateGreaterThanEqualAndEndDateLessThanEqual
-                            (startDate, endDate, pageable);
+            roundPage =
+                    assessmentRoundRepository
+                            .findAllByStartDateGreaterThanEqualAndEndDateLessThanEqual(
+                                    request.getStartDate(),
+                                    request.getEndDate(),
+                                    pageable);
 
-        } else if (startDate != null) {
+        } else if (request.getStartDate() != null) {
 
-            roundPage = assessmentRoundRepository
-                    .findAllByStartDate(startDate, pageable);
+            roundPage =
+                    assessmentRoundRepository
+                            .findAllByStartDate(
+                                    request.getStartDate(),
+                                    pageable);
 
-        } else if (endDate != null) {
+        } else if (request.getEndDate() != null) {
 
-            roundPage = assessmentRoundRepository
-                    .findAllByEndDate(endDate, pageable);
+            roundPage =
+                    assessmentRoundRepository
+                            .findAllByEndDate(
+                                    request.getEndDate(),
+                                    pageable);
 
-        } else if (description != null && !description.isBlank()) {
 
-            roundPage = assessmentRoundRepository
-                    .findAllByDescriptionContainingIgnoreCase(description, pageable);
+        } else if (request.getDescription() != null
+                && !request.getDescription().isBlank()) {
 
-        } else if (phaseId != null) {
+            roundPage =
+                    assessmentRoundRepository
+                            .findAllByDescriptionContainingIgnoreCase(
+                                    request.getDescription(),
+                                    pageable);
 
-            roundPage = assessmentRoundRepository
-                    .findAllByPhase_PhaseId(phaseId, pageable);
+        } else if (request.getPhaseId() != null) {
 
-        } else if (phaseName != null && !phaseName.isBlank()) {
+            roundPage =
+                    assessmentRoundRepository
+                            .findAllByPhase_PhaseId(
+                                    request.getPhaseId(),
+                                    pageable);
 
-            roundPage = assessmentRoundRepository
-                    .findAllByPhase_PhaseNameContainingIgnoreCase
-                            (phaseName, pageable);
+        } else if (request.getPhaseName() != null
+                && !request.getPhaseName().isBlank()) {
+
+            roundPage =
+                    assessmentRoundRepository
+                            .findAllByPhase_PhaseNameContainingIgnoreCase(
+                                    request.getPhaseName(),
+                                    pageable);
 
         } else if (active != null) {
 
-            roundPage = assessmentRoundRepository
-                    .findAllByIsActive(active, pageable);
+            roundPage =
+                    assessmentRoundRepository
+                            .findAllByIsActive(
+                                    active,
+                                    pageable);
 
         } else {
 
-            roundPage = assessmentRoundRepository
-                    .findAll(pageable);
+            roundPage =
+                    assessmentRoundRepository
+                            .findAll(pageable);
         }
 
-        List<AssessmentRoundResponse> items = roundPage.getContent()
-                .stream()
-                .map(assessmentRoundMapper::toResponse)
-                .toList();
+        List<AssessmentRoundResponse> items =
+                roundPage.getContent()
+                        .stream()
+                        .map(assessmentRoundMapper::toResponse)
+                        .toList();
 
         Pagination pagination = Pagination.builder()
-                .currentPage(page)
-                .pageSize(size)
+                .currentPage(request.getPage())
+                .pageSize(request.getSize())
                 .totalPages(roundPage.getTotalPages())
                 .totalItems(roundPage.getTotalElements())
                 .build();
 
-        return PaginationResponse.<AssessmentRoundResponse>builder()
+        return PaginationResponse
+                .<AssessmentRoundResponse>builder()
                 .items(items)
                 .pagination(pagination)
                 .build();
     }
 
     @Override
-    public AssessmentRoundResponse getAssessmentRoundById(Long id) {
+    public AssessmentRoundResponse getAssessmentRoundById(
+            Long id) {
 
-        AssessmentRound round = assessmentRoundRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy đợt đánh giá với ID = " + id));
+        AssessmentRound round =
+                assessmentRoundRepository.findById(id)
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "Không tìm thấy đợt đánh giá với ID = "
+                                                + id));
 
         return assessmentRoundMapper.toResponse(round);
     }
 
     @Override
-    public AssessmentRoundResponse createAssessmentRound(AssessmentRoundCreateRequest request) {
+    public AssessmentRoundResponse createAssessmentRound(
+            AssessmentRoundCreateRequest request) {
 
-        InternshipPhase phase = internshipPhaseRepository.findById(request.getPhaseId())
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy Phase với ID = " + request.getPhaseId()));
+        InternshipPhase phase =
+                internshipPhaseRepository
+                        .findById(request.getPhaseId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "Không tìm thấy Phase với ID = "
+                                                + request.getPhaseId()));
 
-        if (assessmentRoundRepository.existsByRoundNameIgnoreCaseAndPhase_PhaseId(request.getRoundName(), phase.getPhaseId())) {
+        if (assessmentRoundRepository
+                .existsByRoundNameIgnoreCaseAndPhase_PhaseId(
+                        request.getRoundName(),
+                        phase.getPhaseId())) {
 
-            throw new IllegalStateException("Tên đợt đánh giá : '" + request.getRoundName() +
-                    "' đã tồn tại trong Phase ID = " + phase.getPhaseId());
+            throw new ConflictException(
+                    "Tên đợt đánh giá : '"
+                            + request.getRoundName()
+                            + "' đã tồn tại trong Phase ID = "
+                            + phase.getPhaseId());
         }
 
-        if (request.getStartDate().isAfter(request.getEndDate())) {
+        if (request.getStartDate()
+                .isAfter(request.getEndDate())) {
 
-            throw new IllegalArgumentException("Ngày bắt đầu đợt đánh giá không được sau ngày kết thúc đợt đánh giá");
+            throw new BadRequestException(
+                    "Ngày bắt đầu đợt đánh giá không được sau ngày kết thúc đợt đánh giá");
         }
 
-        AssessmentRound round = assessmentRoundMapper.toEntity(request);
+        AssessmentRound round =
+                assessmentRoundMapper.toEntity(request);
 
         round.setPhase(phase);
+
         round.setIsActive(true);
+
         round.setCreatedAt(LocalDateTime.now());
+
         round.setUpdatedAt(LocalDateTime.now());
 
         assessmentRoundRepository.save(round);
@@ -180,59 +238,96 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
         return assessmentRoundMapper.toResponse(round);
     }
 
+
     @Override
-    public AssessmentRoundResponse updateAssessmentRound(Long id, AssessmentRoundUpdateRequest request) {
+    public AssessmentRoundResponse updateAssessmentRound(
+            Long id,
+            AssessmentRoundUpdateRequest request) {
 
-        AssessmentRound round = assessmentRoundRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy đợt đánh giá với ID = " + id));
+        AssessmentRound round =
+                assessmentRoundRepository.findById(id)
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "Không tìm thấy đợt đánh giá với ID = "
+                                                + id));
 
-        boolean used = (round.getRoundCriteria() != null && !round.getRoundCriteria().isEmpty())
-                || (round.getAssessmentResults() != null && !round.getAssessmentResults().isEmpty());
+        boolean used =
+                (round.getRoundCriteria() != null
+                        && !round.getRoundCriteria().isEmpty())
+                        || (round.getAssessmentResults() != null
+                        && !round.getAssessmentResults().isEmpty());
 
         if (request.getRoundName() != null
-                && !request.getRoundName().equalsIgnoreCase(round.getRoundName())) {
-            if (used)
-                throw new IllegalStateException("Đợt đánh giá đã được sử dụng, không thể đổi tên đợt đánh giá");
+                && !request.getRoundName()
+                .equalsIgnoreCase(round.getRoundName())) {
 
-            if (assessmentRoundRepository.existsByRoundNameIgnoreCaseAndPhase_PhaseId(request.getRoundName(), round.getPhase().getPhaseId())) {
+            if (used) {
 
-                throw new IllegalStateException("Tên đợt đánh giá : '" + request.getRoundName() +
-                        "' đã tồn tại trong Phase ID = " + round.getPhase().getPhaseId());
+                throw new ConflictException(
+                        "Đợt đánh giá đã được sử dụng, không thể đổi tên đợt đánh giá");
+            }
+
+            if (assessmentRoundRepository
+                    .existsByRoundNameIgnoreCaseAndPhase_PhaseId(
+                            request.getRoundName(),
+                            round.getPhase().getPhaseId())) {
+
+                throw new ConflictException(
+                        "Tên đợt đánh giá : '"
+                                + request.getRoundName()
+                                + "' đã tồn tại trong Phase ID = "
+                                + round.getPhase().getPhaseId());
             }
         }
 
-        if (request.getStartDate() != null && !request.getStartDate().equals(round.getStartDate()) && used) {
+        if (request.getStartDate() != null
+                && !request.getStartDate()
+                .equals(round.getStartDate())
+                && used) {
 
-            throw new IllegalStateException("Đợt đánh giá đã được sử dụng, không thể đổi ngày bắt đầu đợt đánh giá");
+            throw new ConflictException(
+                    "Đợt đánh giá đã được sử dụng, không thể đổi ngày bắt đầu đợt đánh giá");
         }
 
-        if (request.getEndDate() != null && !request.getEndDate().equals(round.getEndDate()) && used) {
+        if (request.getEndDate() != null
+                && !request.getEndDate()
+                .equals(round.getEndDate())
+                && used) {
 
-            throw new IllegalStateException("Đợt đánh giá đã được sử dụng, không thể đổi ngày kết thúc đợt đánh giá");
+            throw new ConflictException(
+                    "Đợt đánh giá đã được sử dụng, không thể đổi ngày kết thúc đợt đánh giá");
         }
 
-        LocalDate newStartDate = request.getStartDate() != null
-                ? request.getStartDate()
-                : round.getStartDate();
+        LocalDate newStartDate =
+                request.getStartDate() != null
+                        ? request.getStartDate()
+                        : round.getStartDate();
 
-        LocalDate newEndDate = request.getEndDate() != null
-                ? request.getEndDate()
-                : round.getEndDate();
+        LocalDate newEndDate =
+                request.getEndDate() != null
+                        ? request.getEndDate()
+                        : round.getEndDate();
 
         if (newStartDate.isAfter(newEndDate)) {
 
-            throw new IllegalArgumentException("Ngày bắt đầu đợt đánh giá không được sau ngày kết thúc đợt đánh giá");
+            throw new BadRequestException(
+                    "Ngày bắt đầu đợt đánh giá không được sau ngày kết thúc đợt đánh giá");
         }
 
-        assessmentRoundMapper.updateEntityFromDto(request, round);
+        assessmentRoundMapper
+                .updateEntityFromDto(request, round);
 
         if (request.getIsActive() != null) {
 
-            Boolean newActive = Boolean.parseBoolean(request.getIsActive());
+            Boolean newActive =
+                    Boolean.parseBoolean(
+                            request.getIsActive());
 
-            if (!newActive.equals(round.getIsActive()) && used) {
+            if (!newActive.equals(round.getIsActive())
+                    && used) {
 
-                throw new IllegalStateException("Đợt đánh giá đã được sử dụng, không thể đổi trạng thái hoạt động của đợt đánh giá");
+                throw new ConflictException(
+                        "Đợt đánh giá đã được sử dụng, không thể đổi trạng thái hoạt động của đợt đánh giá");
             }
 
             round.setIsActive(newActive);
@@ -246,24 +341,32 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
     }
 
     @Override
-    public AssessmentRoundResponse deleteAssessmentRound(Long id) {
+    public AssessmentRoundResponse deleteAssessmentRound(
+            Long id) {
 
-        AssessmentRound round = assessmentRoundRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Không tìm thấy đợt đánh giá với ID = " + id));
+        AssessmentRound round =
+                assessmentRoundRepository.findById(id)
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "Không tìm thấy đợt đánh giá với ID = "
+                                                + id));
 
-        if (round.getRoundCriteria() != null && !round.getRoundCriteria().isEmpty()) {
+        if (round.getRoundCriteria() != null
+                && !round.getRoundCriteria().isEmpty()) {
 
-            throw new IllegalStateException(
-                    "Không thể xóa đợt đánh giá ID = " + id +
-                            " vì đã liên kết với RoundCriteria");
+            throw new ConflictException(
+                    "Không thể xóa đợt đánh giá ID = "
+                            + id
+                            + " vì đã liên kết với RoundCriteria");
         }
 
-        if (round.getAssessmentResults() != null && !round.getAssessmentResults().isEmpty()) {
+        if (round.getAssessmentResults() != null
+                && !round.getAssessmentResults().isEmpty()) {
 
-            throw new IllegalStateException(
-                    "Không thể xóa đợt đánh giá ID = " + id +
-                            " vì đã liên kết với AssessmentResult");
+            throw new ConflictException(
+                    "Không thể xóa đợt đánh giá ID = "
+                            + id
+                            + " vì đã liên kết với AssessmentResult");
         }
 
         AssessmentRoundResponse response = assessmentRoundMapper.toResponse(round);
@@ -271,7 +374,5 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
         assessmentRoundRepository.delete(round);
 
         return response;
-
-
     }
 }

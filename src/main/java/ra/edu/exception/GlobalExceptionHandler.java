@@ -1,13 +1,13 @@
 package ra.edu.exception;
 
-import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
+import org.springframework.validation.BindException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -20,13 +20,15 @@ import ra.edu.entity.UserRole;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<?>> handleValidation(
@@ -35,16 +37,15 @@ public class GlobalExceptionHandler {
         List<ValidationError> errors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .map(err -> new ValidationError(
-                        err.getField(),
-                        err.getDefaultMessage()))
+                .map(this::buildValidationError)
                 .toList();
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(
-                        "Dữ liệu không hợp lệ",
-                        errors));
+        return badRequest(
+                "Dữ liệu không hợp lệ",
+                errors
+        );
     }
+
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<?>> handleJsonParse(
@@ -56,207 +57,111 @@ public class GlobalExceptionHandler {
 
             if (throwable instanceof tools.jackson.databind.exc.InvalidFormatException formatEx) {
 
-                String fieldName = "data";
+                String fieldName = extractFieldName(
+                        formatEx.getMessage()
+                );
 
-                String message = formatEx.getMessage();
+                ValidationError error = new ValidationError(
+                        fieldName,
+                        getMessageByType(formatEx.getTargetType())
+                );
 
-                Matcher matcher = Pattern
-                        .compile("\\[\"(.*?)\"]")
-                        .matcher(message);
-
-                if (matcher.find()) {
-                    fieldName = matcher.group(1);
-                }
-
-                ValidationError error;
-
-                Class<?> targetType = formatEx.getTargetType();
-
-                if (targetType == LocalDate.class) {
-
-                    error = new ValidationError(
-                            fieldName,
-                            "Ngày không đúng định dạng dd/MM/yyyy");
-
-                } else if (targetType == LocalDateTime.class) {
-
-                    error = new ValidationError(
-                            fieldName,
-                            "Ngày giờ không đúng định dạng dd/MM/yyyy HH:mm");
-
-                } else if (targetType == Integer.class
-                        || targetType == Long.class
-                        || targetType == int.class
-                        || targetType == long.class) {
-
-                    error = new ValidationError(
-                            fieldName,
-                            "Phải là số nguyên");
-
-                } else if (targetType == Double.class
-                        || targetType == Float.class
-                        || targetType == double.class
-                        || targetType == float.class
-                        || targetType == BigDecimal.class) {
-
-                    error = new ValidationError(
-                            fieldName,
-                            "Phải là số");
-
-                } else if (targetType == UserRole.class) {
-
-                    error = new ValidationError(
-                            fieldName,
-                            "Role không hợp lệ. Giá trị hợp lệ: "
-                                    + Arrays.stream(UserRole.values())
-                                    .map(Enum::name)
-                                    .collect(Collectors.joining(", ")));
-
-                } else if (targetType == InternshipAssignmentsStatus.class) {
-
-                    error = new ValidationError(
-                            fieldName,
-                            "Status không hợp lệ. Giá trị hợp lệ: "
-                                    + Arrays.stream(
-                                            InternshipAssignmentsStatus.values()
-                                    )
-                                    .map(Enum::name)
-                                    .collect(Collectors.joining(", ")));
-
-                } else {
-
-                    error = new ValidationError(
-                            fieldName,
-                            "Dữ liệu không đúng định dạng");
-                }
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error(
-                                "Dữ liệu không hợp lệ",
-                                List.of(error)));
+                return badRequest(
+                        "Dữ liệu không hợp lệ",
+                        List.of(error)
+                );
             }
 
             throwable = throwable.getCause();
         }
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(
-                        "Dữ liệu không hợp lệ",
-                        List.of(
-                                new ValidationError(
-                                        "data",
-                                        "Dữ liệu không hợp lệ"))));
+        return badRequest(
+                "Dữ liệu không hợp lệ",
+                List.of(
+                        new ValidationError(
+                                "data",
+                                "Dữ liệu không hợp lệ"
+                        )
+                )
+        );
     }
+
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<?>> handleTypeMismatch(
             MethodArgumentTypeMismatchException ex) {
 
-        ValidationError error;
+        ValidationError error = new ValidationError(
+                ex.getName(),
+                getMessageByType(ex.getRequiredType())
+        );
 
-        Class<?> type = ex.getRequiredType();
-
-        if (type == LocalDate.class) {
-
-            error = new ValidationError(
-                    ex.getName(),
-                    "Ngày không đúng định dạng dd/MM/yyyy");
-
-        } else if (type == LocalDateTime.class) {
-
-            error = new ValidationError(
-                    ex.getName(),
-                    "Ngày giờ không đúng định dạng dd/MM/yyyy HH:mm");
-
-        } else if (type == Integer.class
-                || type == Long.class
-                || type == int.class
-                || type == long.class) {
-
-            error = new ValidationError(
-                    ex.getName(),
-                    "Phải là số nguyên");
-
-        } else if (type == Double.class
-                || type == Float.class
-                || type == double.class
-                || type == float.class
-                || type == BigDecimal.class) {
-
-            error = new ValidationError(
-                    ex.getName(),
-                    "Phải là số");
-
-        } else if (type == UserRole.class) {
-
-            error = new ValidationError(
-                    ex.getName(),
-                    "Role không hợp lệ. Giá trị hợp lệ: "
-                            + Arrays.stream(UserRole.values())
-                            .map(Enum::name)
-                            .collect(Collectors.joining(", ")));
-
-        } else if (type == InternshipAssignmentsStatus.class) {
-
-            error = new ValidationError(
-                    ex.getName(),
-                    "Status không hợp lệ. Giá trị hợp lệ: "
-                            + Arrays.stream(
-                                    InternshipAssignmentsStatus.values())
-                            .map(Enum::name)
-                            .collect(Collectors.joining(", ")));
-
-        } else {
-
-            error = new ValidationError(
-                    ex.getName(),
-                    "Dữ liệu không hợp lệ");
-        }
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(
-                        "Dữ liệu không hợp lệ",
-                        List.of(error)));
+        return badRequest(
+                "Dữ liệu không hợp lệ",
+                List.of(error)
+        );
     }
 
-    @ExceptionHandler(EntityNotFoundException.class)
+
+//    @ExceptionHandler(BindException.class)
+//    public ResponseEntity<ApiResponse<?>> handleBindException(
+//            BindException ex) {
+//
+//        List<ValidationError> errors = ex.getBindingResult()
+//                .getFieldErrors()
+//                .stream()
+//                .map(this::buildValidationError)
+//                .toList();
+//
+//        return badRequest(
+//                "Dữ liệu không hợp lệ",
+//                errors
+//        );
+//    }
+
+
+    @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ApiResponse<?>> handleNotFound(
-            EntityNotFoundException ex) {
+            NotFoundException ex) {
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(
                         ex.getMessage(),
-                        null));
+                        null
+                ));
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
+    @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<ApiResponse<?>> handleBadRequest(
-            IllegalArgumentException ex) {
+            BadRequestException ex) {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(
                         ex.getMessage(),
-                        null));
+                        null
+                ));
     }
 
-    @ExceptionHandler(IllegalStateException.class)
+    @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiResponse<?>> handleConflict(
-            IllegalStateException ex) {
+            ConflictException ex) {
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(
                         ex.getMessage(),
-                        null));
+                        null
+                ));
     }
 
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiResponse<?>> handleBadCredentials(
-            BadCredentialsException ex) {
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ApiResponse<?>> handleForbidden(
+            ForbiddenException ex) {
 
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(
                         ex.getMessage(),
-                        null));
+                        null
+                ));
     }
 
     @ExceptionHandler(DisabledException.class)
@@ -266,7 +171,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(
                         ex.getMessage(),
-                        null));
+                        null
+                ));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -276,26 +182,187 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(
                         "Không thể thực hiện thao tác vì dữ liệu đang được liên kết hoặc bị trùng",
-                        null));
+                        null
+                ));
     }
 
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<?>> handleAccessDenied(
-            AccessDeniedException ex) {
 
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<?>> handleException(
+            Exception ex) {
+
+        ex.printStackTrace();
+
+        return ResponseEntity.status(
+                        HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(
                         ex.getMessage(),
-                        null));
+                        null
+                ));
     }
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ApiResponse<?>> handleRuntime(
-            RuntimeException ex) {
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+    private ResponseEntity<ApiResponse<?>> badRequest(
+            String message,
+            List<ValidationError> errors) {
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(
-                        ex.getMessage(),
-                        null));
+                        message,
+                        errors
+                ));
     }
+
+    private ValidationError buildValidationError(
+            FieldError err) {
+
+        String message = err.getDefaultMessage();
+
+        if (message == null) {
+            message = "Dữ liệu không hợp lệ";
+        }
+
+
+        if (message.contains("Long")
+                || message.contains("Integer")
+                || message.contains("long")
+                || message.contains("int")) {
+
+            return new ValidationError(
+                    err.getField(),
+                    "Phải là số nguyên"
+            );
+        }
+
+
+        if (message.contains("Double")
+                || message.contains("Float")
+                || message.contains("BigDecimal")
+                || message.contains("double")
+                || message.contains("float")) {
+
+            return new ValidationError(
+                    err.getField(),
+                    "Phải là số"
+            );
+        }
+
+
+        if (message.contains("LocalDateTime")) {
+
+            return new ValidationError(
+                    err.getField(),
+                    "Ngày giờ không đúng định dạng dd/MM/yyyy HH:mm"
+            );
+        }
+
+        if (message.contains("LocalDate")) {
+
+            return new ValidationError(
+                    err.getField(),
+                    "Ngày không đúng định dạng dd/MM/yyyy"
+            );
+        }
+
+
+        if (message.contains("UserRole")) {
+
+            return new ValidationError(
+                    err.getField(),
+                    "Role không hợp lệ. Giá trị hợp lệ: "
+                            + Arrays.stream(UserRole.values())
+                            .map(Enum::name)
+                            .collect(Collectors.joining(", "))
+            );
+        }
+
+        if (message.contains(
+                "InternshipAssignmentsStatus")) {
+
+            return new ValidationError(
+                    err.getField(),
+                    "Status không hợp lệ. Giá trị hợp lệ: "
+                            + Arrays.stream(
+                                    InternshipAssignmentsStatus.values())
+                            .map(Enum::name)
+                            .collect(Collectors.joining(", "))
+            );
+        }
+
+        return new ValidationError(
+                err.getField(),
+                message
+        );
+    }
+
+    private String extractFieldName(String message) {
+
+        Matcher matcher = Pattern
+                .compile("\\[\"(.*?)\"]")
+                .matcher(message);
+
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+
+        return "data";
+    }
+
+    private String getMessageByType(Class<?> type) {
+
+        if (type == null) {
+            return "Dữ liệu không hợp lệ";
+        }
+
+        if (type == LocalDate.class) {
+
+            return "Ngày không đúng định dạng dd/MM/yyyy";
+        }
+
+        if (type == LocalDateTime.class) {
+
+            return "Ngày giờ không đúng định dạng dd/MM/yyyy HH:mm";
+        }
+
+
+        if (type == Integer.class
+                || type == Long.class
+                || type == int.class
+                || type == long.class) {
+
+            return "Phải là số nguyên";
+        }
+
+
+        if (type == Double.class
+                || type == Float.class
+                || type == double.class
+                || type == float.class
+                || type == BigDecimal.class) {
+
+            return "Phải là số";
+        }
+
+
+        if (type == UserRole.class) {
+
+            return "Role không hợp lệ. Giá trị hợp lệ: "
+                    + Arrays.stream(UserRole.values())
+                    .map(Enum::name)
+                    .collect(Collectors.joining(", "));
+        }
+
+        if (type == InternshipAssignmentsStatus.class) {
+
+            return "Status không hợp lệ. Giá trị hợp lệ: "
+                    + Arrays.stream(
+                            InternshipAssignmentsStatus.values())
+                    .map(Enum::name)
+                    .collect(Collectors.joining(", "));
+        }
+
+        return "Dữ liệu không hợp lệ";
+    }
+
+
 }

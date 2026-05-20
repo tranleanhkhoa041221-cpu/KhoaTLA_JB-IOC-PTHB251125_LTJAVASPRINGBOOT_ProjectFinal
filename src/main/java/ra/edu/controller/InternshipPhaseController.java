@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ra.edu.dto.request.InternshipPhaseCreateRequest;
+import ra.edu.dto.request.InternshipPhaseFilterRequest;
 import ra.edu.dto.request.InternshipPhaseUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
 import ra.edu.service.InternshipPhaseService;
@@ -23,16 +24,11 @@ public class InternshipPhaseController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAll(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String phaseName,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate endDate,
-            @RequestParam(required = false) String description) {
+            @Valid @ModelAttribute InternshipPhaseFilterRequest filter) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy danh sách giai đoạn thực tập thành công",
-                        internshipPhaseService.getAllPhases(page, size, phaseName, startDate, endDate, description)));
+                        internshipPhaseService.getAllPhases(filter)));
     }
 
     @GetMapping("/{id}")

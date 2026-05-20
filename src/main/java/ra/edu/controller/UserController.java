@@ -6,10 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ra.edu.dto.request.UserCreateRequest;
-import ra.edu.dto.request.UserUpdateRequest;
-import ra.edu.dto.request.UserUpdateRoleRequest;
-import ra.edu.dto.request.UserUpdateStatusRequest;
+import ra.edu.dto.request.*;
 import ra.edu.dto.response.ApiResponse;
 import ra.edu.entity.UserRole;
 import ra.edu.service.UserService;
@@ -23,18 +20,11 @@ public class UserController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getAll(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String username,
-            @RequestParam(required = false) String fullName,
-            @RequestParam(required = false) String email,
-            @RequestParam(required = false) String phoneNumber,
-            @RequestParam(required = false) String isActive,
-            @RequestParam(required = false) UserRole role) {
+            @Valid @ModelAttribute UserFilterRequest filter) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy danh sách người dùng thành công",
-                        userService.getAllUsers(page, size, username, fullName, email, phoneNumber, isActive, role)));
+                        userService.getAllUsers(filter)));
     }
 
     @GetMapping("/{id}")

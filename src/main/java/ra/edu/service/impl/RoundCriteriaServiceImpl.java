@@ -1,6 +1,5 @@
 package ra.edu.service.impl;
 
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -9,19 +8,22 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.RoundCriteriaCreateRequest;
+import ra.edu.dto.request.RoundCriteriaFilterRequest;
 import ra.edu.dto.request.RoundCriteriaUpdateRequest;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.dto.response.RoundCriteriaResponse;
 import ra.edu.entity.AssessmentRound;
 import ra.edu.entity.EvaluationCriteria;
 import ra.edu.entity.RoundCriteria;
+import ra.edu.exception.BadRequestException;
+import ra.edu.exception.ConflictException;
+import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.RoundCriteriaMapper;
 import ra.edu.repository.AssessmentRoundRepository;
 import ra.edu.repository.EvaluationCriteriaRepository;
 import ra.edu.repository.RoundCriteriaRepository;
 import ra.edu.service.RoundCriteriaService;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -39,104 +41,124 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
 
     @Override
     public PaginationResponse<RoundCriteriaResponse> getAllRoundCriteria(
-            int page,
-            int size,
-            Long roundId,
-            Long criterionId,
-            String roundName,
-            String criterionName,
-            BigDecimal weight,
-            BigDecimal minWeight,
-            BigDecimal maxWeight) {
+            RoundCriteriaFilterRequest request) {
 
+        if (request.getMinWeight() != null
+                && request.getMaxWeight() != null
+                && request.getMinWeight()
+                .compareTo(request.getMaxWeight()) > 0) {
 
-        if (minWeight != null && maxWeight != null
-                && minWeight.compareTo(maxWeight) > 0) {
-
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "minWeight không được lớn hơn maxWeight");
         }
 
-        if (roundId != null && !assessmentRoundRepository.existsById(roundId)) {
+        if (request.getRoundId() != null
+                && !assessmentRoundRepository
+                .existsById(request.getRoundId())) {
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy đợt đánh giá với ID = " + roundId);
+            throw new NotFoundException(
+                    "Không tìm thấy đợt đánh giá với ID = "
+                            + request.getRoundId());
         }
 
-        if (criterionId != null
-                && !evaluationCriteriaRepository.existsById(criterionId)) {
+        if (request.getCriterionId() != null
+                && !evaluationCriteriaRepository
+                .existsById(request.getCriterionId())) {
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy tiêu chí đánh giá với ID = " + criterionId);
+            throw new NotFoundException(
+                    "Không tìm thấy tiêu chí đánh giá với ID = "
+                            + request.getCriterionId());
         }
 
         Pageable pageable = PageRequest.of(
-                page - 1,
-                size,
+                request.getPage() - 1,
+                request.getSize(),
                 Sort.by("roundCriterionId").descending());
 
         Page<RoundCriteria> roundCriteriaPage;
 
-        if (roundId != null && criterionId != null) {
+        if (request.getRoundId() != null
+                && request.getCriterionId() != null) {
 
             roundCriteriaPage =
                     roundCriteriaRepository
                             .findAllByRound_RoundIdAndCriterion_CriterionId(
-                                    roundId, criterionId, pageable);
+                                    request.getRoundId(),
+                                    request.getCriterionId(),
+                                    pageable);
 
-        } else if (roundId != null) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByRound_RoundId(roundId, pageable);
-
-        } else if (criterionId != null) {
+        } else if (request.getRoundId() != null) {
 
             roundCriteriaPage =
                     roundCriteriaRepository
-                            .findAllByCriterion_CriterionId(criterionId, pageable);
+                            .findAllByRound_RoundId(
+                                    request.getRoundId(),
+                                    pageable);
 
-        } else if (roundName != null && !roundName.isBlank()) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByRound_RoundNameContainingIgnoreCase(roundName, pageable);
-
-        } else if (criterionName != null && !criterionName.isBlank()) {
+        } else if (request.getCriterionId() != null) {
 
             roundCriteriaPage =
                     roundCriteriaRepository
-                            .findAllByCriterion_CriterionNameContainingIgnoreCase(criterionName, pageable);
+                            .findAllByCriterion_CriterionId(
+                                    request.getCriterionId(),
+                                    pageable);
 
-        } else if (weight != null) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByWeight(weight, pageable);
-
-        } else if (minWeight != null && maxWeight != null) {
+        } else if (request.getRoundName() != null
+                && !request.getRoundName().isBlank()) {
 
             roundCriteriaPage =
                     roundCriteriaRepository
-                            .findAllByWeightBetween(minWeight, maxWeight, pageable);
+                            .findAllByRound_RoundNameContainingIgnoreCase(
+                                    request.getRoundName(),
+                                    pageable);
 
-        } else if (minWeight != null) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByWeightGreaterThanEqual(minWeight, pageable);
-
-        } else if (maxWeight != null) {
+        } else if (request.getCriterionName() != null
+                && !request.getCriterionName().isBlank()) {
 
             roundCriteriaPage =
                     roundCriteriaRepository
-                            .findAllByWeightLessThanEqual(maxWeight, pageable);
+                            .findAllByCriterion_CriterionNameContainingIgnoreCase(
+                                    request.getCriterionName(),
+                                    pageable);
+
+        } else if (request.getWeight() != null) {
+
+            roundCriteriaPage =
+                    roundCriteriaRepository
+                            .findAllByWeight(
+                                    request.getWeight(),
+                                    pageable);
+
+        } else if (request.getMinWeight() != null
+                && request.getMaxWeight() != null) {
+
+            roundCriteriaPage =
+                    roundCriteriaRepository
+                            .findAllByWeightBetween(
+                                    request.getMinWeight(),
+                                    request.getMaxWeight(),
+                                    pageable);
+
+        } else if (request.getMinWeight() != null) {
+
+            roundCriteriaPage =
+                    roundCriteriaRepository
+                            .findAllByWeightGreaterThanEqual(
+                                    request.getMinWeight(),
+                                    pageable);
+
+        } else if (request.getMaxWeight() != null) {
+
+            roundCriteriaPage =
+                    roundCriteriaRepository
+                            .findAllByWeightLessThanEqual(
+                                    request.getMaxWeight(),
+                                    pageable);
 
         } else {
 
             roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAll(pageable);
+                    roundCriteriaRepository.findAll(pageable);
         }
 
         List<RoundCriteriaResponse> items =
@@ -146,8 +168,8 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                         .toList();
 
         Pagination pagination = Pagination.builder()
-                .currentPage(page)
-                .pageSize(size)
+                .currentPage(request.getPage())
+                .pageSize(request.getSize())
                 .totalPages(roundCriteriaPage.getTotalPages())
                 .totalItems(roundCriteriaPage.getTotalElements())
                 .build();
@@ -165,11 +187,9 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
         RoundCriteria roundCriteria =
                 roundCriteriaRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
-                                                + id
-                                )
-                        );
+                                                + id));
 
         return roundCriteriaMapper.toResponse(roundCriteria);
     }
@@ -181,7 +201,7 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
         AssessmentRound round =
                 assessmentRoundRepository.findById(request.getRoundId())
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy đợt đánh giá với ID = "
                                                 + request.getRoundId()));
 
@@ -189,7 +209,7 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                 evaluationCriteriaRepository.findById(
                                 request.getCriterionId())
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy tiêu chí đánh giá với ID = "
                                                 + request.getCriterionId()));
 
@@ -198,7 +218,7 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                         request.getRoundId(),
                         request.getCriterionId())) {
 
-            throw new IllegalStateException(
+            throw new ConflictException(
                     "Tiêu chí đánh giá ID = "
                             + request.getCriterionId()
                             + " đã tồn tại trong đợt đánh giá ID = "
@@ -228,7 +248,7 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
         RoundCriteria roundCriteria =
                 roundCriteriaRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
                                                 + id));
 
@@ -241,18 +261,19 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
         return roundCriteriaMapper.toResponse(roundCriteria);
     }
 
+
     @Override
     public RoundCriteriaResponse deleteRoundCriteria(Long id) {
 
         RoundCriteria roundCriteria =
                 roundCriteriaRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
                                                 + id));
 
-        RoundCriteriaResponse response = roundCriteriaMapper
-                .toResponse(roundCriteria);
+        RoundCriteriaResponse response =
+                roundCriteriaMapper.toResponse(roundCriteria);
 
         roundCriteriaRepository.delete(roundCriteria);
 

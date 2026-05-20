@@ -1,23 +1,26 @@
 package ra.edu.service.impl;
 
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import ra.edu.config.principal.UserPrincipal;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.InternshipAssignmentCreateRequest;
+import ra.edu.dto.request.InternshipAssignmentFilterRequest;
 import ra.edu.dto.request.InternshipAssignmentUpdateRequest;
 import ra.edu.dto.request.InternshipAssignmentUpdateStatusRequest;
 import ra.edu.dto.response.InternshipAssignmentResponse;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.entity.*;
+import ra.edu.exception.BadRequestException;
+import ra.edu.exception.ConflictException;
+import ra.edu.exception.ForbiddenException;
+import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.InternshipAssignmentMapper;
 import ra.edu.repository.InternshipAssignmentRepository;
 import ra.edu.repository.InternshipPhaseRepository;
@@ -53,444 +56,573 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
         return principal.getUser();
     }
 
-    @Override
-    public PaginationResponse<InternshipAssignmentResponse> getAllAssignments(
-            int page,
-            int size,
-            Long studentId,
-            Long mentorId,
-            Long phaseId,
-            String studentUsername,
-            String mentorUsername,
-            String studentFullName,
-            String mentorFullName,
-            String studentEmail,
-            String mentorEmail,
-            String studentPhoneNumber,
-            String mentorPhoneNumber,
-            InternshipAssignmentsStatus status,
-            LocalDateTime assignedDate,
-            LocalDateTime minAssignedDate,
-            LocalDateTime maxAssignedDate) {
+    private void validateFilterIds(
+            InternshipAssignmentFilterRequest filter) {
 
-        if (minAssignedDate != null && maxAssignedDate != null
-                && minAssignedDate.isAfter(maxAssignedDate)) {
+        if (filter.getStudentId() != null
+                && !studentRepository.existsById(filter.getStudentId())) {
 
-            throw new IllegalArgumentException(
+            throw new NotFoundException(
+                    "Không tìm thấy Student với ID = "
+                            + filter.getStudentId());
+        }
+
+        if (filter.getMentorId() != null
+                && !mentorRepository.existsById(filter.getMentorId())) {
+
+            throw new NotFoundException(
+                    "Không tìm thấy Mentor với ID = "
+                            + filter.getMentorId());
+        }
+
+        if (filter.getPhaseId() != null
+                && !internshipPhaseRepository.existsById(filter.getPhaseId())) {
+
+            throw new NotFoundException(
+                    "Không tìm thấy InternshipPhase với ID = "
+                            + filter.getPhaseId());
+        }
+    }
+
+    private void validateAssignedDate(
+            InternshipAssignmentFilterRequest filter) {
+
+        if (filter.getMinAssignedDate() != null
+                && filter.getMaxAssignedDate() != null
+                && filter.getMinAssignedDate()
+                .isAfter(filter.getMaxAssignedDate())) {
+
+            throw new BadRequestException(
                     "minAssignedDate không được sau maxAssignedDate");
         }
+    }
 
-        if (studentId != null && !studentRepository.existsById(studentId)) {
+    private Page<InternshipAssignment> getAllForAdmin(
+            InternshipAssignmentFilterRequest filter,
+            Pageable pageable) {
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy Student với ID = " + studentId);
+        if (filter.getStudentId() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentId(
+                            filter.getStudentId(),
+                            pageable);
+
+        } else if (filter.getMentorId() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorId(
+                            filter.getMentorId(),
+                            pageable);
+
+        } else if (filter.getPhaseId() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByPhase_PhaseId(
+                            filter.getPhaseId(),
+                            pageable);
+
+        } else if (filter.getStatus() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByStatus(
+                            filter.getStatus(),
+                            pageable);
+
+        } else if (filter.getAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByAssignedDate(
+                            filter.getAssignedDate(),
+                            pageable);
+
+        } else if (filter.getMinAssignedDate() != null
+                && filter.getMaxAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByAssignedDateBetween(
+                            filter.getMinAssignedDate(),
+                            filter.getMaxAssignedDate(),
+                            pageable);
+
+        } else if (filter.getMinAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByAssignedDateGreaterThanEqual(
+                            filter.getMinAssignedDate(),
+                            pageable);
+
+        } else if (filter.getMaxAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByAssignedDateLessThanEqual(
+                            filter.getMaxAssignedDate(),
+                            pageable);
+
+        } else if (filter.getStudentUsername() != null
+                && !filter.getStudentUsername().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_User_UsernameContainingIgnoreCase(
+                            filter.getStudentUsername(),
+                            pageable);
+
+        } else if (filter.getStudentFullName() != null
+                && !filter.getStudentFullName().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_User_FullNameContainingIgnoreCase(
+                            filter.getStudentFullName(),
+                            pageable);
+
+        } else if (filter.getStudentEmail() != null
+                && !filter.getStudentEmail().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_User_EmailContainingIgnoreCase(
+                            filter.getStudentEmail(),
+                            pageable);
+
+        } else if (filter.getStudentPhoneNumber() != null
+                && !filter.getStudentPhoneNumber().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_User_PhoneNumberContainingIgnoreCase(
+                            filter.getStudentPhoneNumber(),
+                            pageable);
+
+        } else if (filter.getMentorUsername() != null
+                && !filter.getMentorUsername().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_User_UsernameContainingIgnoreCase(
+                            filter.getMentorUsername(),
+                            pageable);
+
+        } else if (filter.getMentorFullName() != null
+                && !filter.getMentorFullName().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_User_FullNameContainingIgnoreCase(
+                            filter.getMentorFullName(),
+                            pageable);
+
+        } else if (filter.getMentorEmail() != null
+                && !filter.getMentorEmail().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_User_EmailContainingIgnoreCase(
+                            filter.getMentorEmail(),
+                            pageable);
+
+        } else if (filter.getMentorPhoneNumber() != null
+                && !filter.getMentorPhoneNumber().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_User_PhoneNumberContainingIgnoreCase(
+                            filter.getMentorPhoneNumber(),
+                            pageable);
         }
 
-        if (mentorId != null && !mentorRepository.existsById(mentorId)) {
+        return internshipAssignmentRepository.findAll(pageable);
+    }
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy Mentor với ID = " + mentorId);
+    private Page<InternshipAssignment> getAllForMentor(
+            InternshipAssignmentFilterRequest filter,
+            Pageable pageable,
+            User currentUser) {
+
+        Mentor mentor = mentorRepository
+                .findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = "
+                                        + currentUser.getUserId()
+                                        + " chưa được liên kết với role MENTOR"));
+
+        Long mentorId = mentor.getMentorId();
+
+        if (filter.getStudentId() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndStudent_StudentId(
+                            mentorId,
+                            filter.getStudentId(),
+                            pageable);
+
+        } else if (filter.getPhaseId() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndPhase_PhaseId(
+                            mentorId,
+                            filter.getPhaseId(),
+                            pageable);
+
+        } else if (filter.getStatus() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndStatus(
+                            mentorId,
+                            filter.getStatus(),
+                            pageable);
+
+        } else if (filter.getAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndAssignedDate(
+                            mentorId,
+                            filter.getAssignedDate(),
+                            pageable);
+
+        } else if (filter.getMinAssignedDate() != null
+                && filter.getMaxAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndAssignedDateBetween(
+                            mentorId,
+                            filter.getMinAssignedDate(),
+                            filter.getMaxAssignedDate(),
+                            pageable);
+
+        } else if (filter.getMinAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndAssignedDateGreaterThanEqual(
+                            mentorId,
+                            filter.getMinAssignedDate(),
+                            pageable);
+
+        } else if (filter.getMaxAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndAssignedDateLessThanEqual(
+                            mentorId,
+                            filter.getMaxAssignedDate(),
+                            pageable);
+
+        } else if (filter.getStudentUsername() != null
+                && !filter.getStudentUsername().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndStudent_User_UsernameContainingIgnoreCase(
+                            mentorId,
+                            filter.getStudentUsername(),
+                            pageable);
+
+        } else if (filter.getStudentFullName() != null
+                && !filter.getStudentFullName().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndStudent_User_FullNameContainingIgnoreCase(
+                            mentorId,
+                            filter.getStudentFullName(),
+                            pageable);
+
+        } else if (filter.getStudentEmail() != null
+                && !filter.getStudentEmail().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndStudent_User_EmailContainingIgnoreCase(
+                            mentorId,
+                            filter.getStudentEmail(),
+                            pageable);
+
+        } else if (filter.getStudentPhoneNumber() != null
+                && !filter.getStudentPhoneNumber().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndStudent_User_PhoneNumberContainingIgnoreCase(
+                            mentorId,
+                            filter.getStudentPhoneNumber(),
+                            pageable);
+
+        } else if (filter.getMentorUsername() != null
+                && !filter.getMentorUsername().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndMentor_User_UsernameContainingIgnoreCase(
+                            mentorId,
+                            filter.getMentorUsername(),
+                            pageable);
+
+        } else if (filter.getMentorFullName() != null
+                && !filter.getMentorFullName().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndMentor_User_FullNameContainingIgnoreCase(
+                            mentorId,
+                            filter.getMentorFullName(),
+                            pageable);
+
+        } else if (filter.getMentorEmail() != null
+                && !filter.getMentorEmail().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndMentor_User_EmailContainingIgnoreCase(
+                            mentorId,
+                            filter.getMentorEmail(),
+                            pageable);
+
+        } else if (filter.getMentorPhoneNumber() != null
+                && !filter.getMentorPhoneNumber().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByMentor_MentorIdAndMentor_User_PhoneNumberContainingIgnoreCase(
+                            mentorId,
+                            filter.getMentorPhoneNumber(),
+                            pageable);
         }
 
-        if (phaseId != null && !internshipPhaseRepository.existsById(phaseId)) {
+        return internshipAssignmentRepository
+                .findAllByMentor_MentorId(
+                        mentorId,
+                        pageable);
+    }
 
-            throw new EntityNotFoundException(
-                    "Không tìm thấy InternshipPhase với ID = " + phaseId);
+    private Page<InternshipAssignment> getAllForStudent(
+            InternshipAssignmentFilterRequest filter,
+            Pageable pageable,
+            User currentUser) {
+
+        Student student = studentRepository
+                .findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = "
+                                        + currentUser.getUserId()
+                                        + " chưa được liên kết với role STUDENT"));
+
+        Long studentId = student.getStudentId();
+
+        if (filter.getMentorId() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndMentor_MentorId(
+                            studentId,
+                            filter.getMentorId(),
+                            pageable);
+
+        } else if (filter.getPhaseId() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndPhase_PhaseId(
+                            studentId,
+                            filter.getPhaseId(),
+                            pageable);
+
+        } else if (filter.getStatus() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndStatus(
+                            studentId,
+                            filter.getStatus(),
+                            pageable);
+
+        } else if (filter.getAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndAssignedDate(
+                            studentId,
+                            filter.getAssignedDate(),
+                            pageable);
+
+        } else if (filter.getMinAssignedDate() != null
+                && filter.getMaxAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndAssignedDateBetween(
+                            studentId,
+                            filter.getMinAssignedDate(),
+                            filter.getMaxAssignedDate(),
+                            pageable);
+
+        } else if (filter.getMinAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndAssignedDateGreaterThanEqual(
+                            studentId,
+                            filter.getMinAssignedDate(),
+                            pageable);
+
+        } else if (filter.getMaxAssignedDate() != null) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndAssignedDateLessThanEqual(
+                            studentId,
+                            filter.getMaxAssignedDate(),
+                            pageable);
+
+        } else if (filter.getStudentUsername() != null
+                && !filter.getStudentUsername().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndStudent_User_UsernameContainingIgnoreCase(
+                            studentId,
+                            filter.getStudentUsername(),
+                            pageable);
+
+        } else if (filter.getStudentFullName() != null
+                && !filter.getStudentFullName().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndStudent_User_FullNameContainingIgnoreCase(
+                            studentId,
+                            filter.getStudentFullName(),
+                            pageable);
+
+        } else if (filter.getStudentEmail() != null
+                && !filter.getStudentEmail().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndStudent_User_EmailContainingIgnoreCase(
+                            studentId,
+                            filter.getStudentEmail(),
+                            pageable);
+
+        } else if (filter.getStudentPhoneNumber() != null
+                && !filter.getStudentPhoneNumber().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndStudent_User_PhoneNumberContainingIgnoreCase(
+                            studentId,
+                            filter.getStudentPhoneNumber(),
+                            pageable);
+
+        } else if (filter.getMentorUsername() != null
+                && !filter.getMentorUsername().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndMentor_User_UsernameContainingIgnoreCase(
+                            studentId,
+                            filter.getMentorUsername(),
+                            pageable);
+
+        } else if (filter.getMentorFullName() != null
+                && !filter.getMentorFullName().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndMentor_User_FullNameContainingIgnoreCase(
+                            studentId,
+                            filter.getMentorFullName(),
+                            pageable);
+
+        } else if (filter.getMentorEmail() != null
+                && !filter.getMentorEmail().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndMentor_User_EmailContainingIgnoreCase(
+                            studentId,
+                            filter.getMentorEmail(),
+                            pageable);
+
+        } else if (filter.getMentorPhoneNumber() != null
+                && !filter.getMentorPhoneNumber().isBlank()) {
+
+            return internshipAssignmentRepository
+                    .findAllByStudent_StudentIdAndMentor_User_PhoneNumberContainingIgnoreCase(
+                            studentId,
+                            filter.getMentorPhoneNumber(),
+                            pageable);
         }
+
+        return internshipAssignmentRepository
+                .findAllByStudent_StudentId(
+                        studentId,
+                        pageable);
+    }
+
+    private void checkMentorPermission(
+            InternshipAssignment assignment,
+            User currentUser) {
+
+        Mentor mentor = mentorRepository
+                .findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = "
+                                        + currentUser.getUserId()
+                                        + " chưa được liên kết với role MENTOR"));
+
+        Long ownerMentorId =
+                assignment.getMentor().getMentorId();
+
+        if (!ownerMentorId.equals(mentor.getMentorId())) {
+
+            throw new ForbiddenException(
+                    "FORBIDDEN MENTOR: không có quyền truy cập InternshipAssignment"
+                            + " | currentMentorId=" + mentor.getMentorId()
+                            + " | ownerMentorId=" + ownerMentorId
+                            + " | assignmentId=" + assignment.getAssignmentId());
+        }
+    }
+
+    private void checkStudentPermission(
+            InternshipAssignment assignment,
+            User currentUser) {
+
+        Student student = studentRepository
+                .findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = "
+                                        + currentUser.getUserId()
+                                        + " chưa được liên kết với role STUDENT"));
+
+        Long ownerStudentId =
+                assignment.getStudent().getStudentId();
+
+        if (!ownerStudentId.equals(student.getStudentId())) {
+
+            throw new ForbiddenException(
+                    "FORBIDDEN STUDENT: không có quyền truy cập InternshipAssignment"
+                            + " | currentStudentId=" + student.getStudentId()
+                            + " | ownerStudentId=" + ownerStudentId
+                            + " | assignmentId=" + assignment.getAssignmentId());
+        }
+    }
+
+    private InternshipAssignmentResponse toResponse(
+            InternshipAssignment assignment) {
+
+        return internshipAssignmentMapper.toResponse(assignment);
+    }
+
+    @Override
+    public PaginationResponse<InternshipAssignmentResponse> getAllAssignments(
+            InternshipAssignmentFilterRequest filter) {
+
+        validateFilterIds(filter);
+
+        validateAssignedDate(filter);
 
         User currentUser = getCurrentUser();
 
         Pageable pageable = PageRequest.of(
-                page - 1,
-                size,
+                filter.getPage() - 1,
+                filter.getSize(),
                 Sort.by("assignmentId").descending());
 
         Page<InternshipAssignment> assignmentPage;
 
-        if (currentUser.getRole() == UserRole.ADMIN) {
-
-            if (studentId != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentId(studentId, pageable);
-
-            } else if (mentorId != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorId(mentorId, pageable);
-
-            } else if (phaseId != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByPhase_PhaseId(phaseId, pageable);
-
-            } else if (status != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStatus(status, pageable);
-
-            } else if (assignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByAssignedDate(assignedDate, pageable);
-
-            } else if (minAssignedDate != null && maxAssignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByAssignedDateBetween(
-                                        minAssignedDate, maxAssignedDate, pageable);
-
-            } else if (minAssignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByAssignedDateGreaterThanEqual(
-                                        minAssignedDate, pageable);
-
-            } else if (maxAssignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByAssignedDateLessThanEqual(
-                                        maxAssignedDate, pageable);
-
-            } else if (studentUsername != null && !studentUsername.isBlank()) {
-
-                assignmentPage = internshipAssignmentRepository
-                        .findAllByStudent_User_UsernameContainingIgnoreCase(
-                                studentUsername, pageable);
-
-            } else if (studentFullName != null && !studentFullName.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_User_FullNameContainingIgnoreCase(
-                                        studentFullName, pageable);
-
-            } else if (studentEmail != null && !studentEmail.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_User_EmailContainingIgnoreCase(
-                                        studentEmail, pageable);
-
-            } else if (studentPhoneNumber != null && !studentPhoneNumber.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_User_PhoneNumberContainingIgnoreCase(
-                                        studentPhoneNumber, pageable);
-
-            } else if (mentorUsername != null && !mentorUsername.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_User_UsernameContainingIgnoreCase(
-                                        mentorUsername, pageable);
-
-            } else if (mentorFullName != null && !mentorFullName.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_User_FullNameContainingIgnoreCase(
-                                        mentorFullName, pageable);
-
-            } else if (mentorEmail != null && !mentorEmail.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_User_EmailContainingIgnoreCase(
-                                        mentorEmail, pageable);
-
-            } else if (mentorPhoneNumber != null && !mentorPhoneNumber.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_User_PhoneNumberContainingIgnoreCase(
-                                        mentorPhoneNumber, pageable);
-
-            } else {
-
-                assignmentPage =
-                        internshipAssignmentRepository.findAll(pageable);
-            }
-        } else if (currentUser.getRole() == UserRole.MENTOR) {
-
-            Mentor mentor =
-                    mentorRepository.findByUser_UserId(currentUser.getUserId())
-                            .orElseThrow(() ->
-                                    new EntityNotFoundException(
-                                            "User ID = "
-                                                    + currentUser.getUserId()
-                                                    + " chưa được liên kết với role MENTOR"));
-
-            if (studentId != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndStudent_StudentId(
-                                        mentor.getMentorId(), studentId, pageable);
-
-            } else if (phaseId != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndPhase_PhaseId(
-                                        mentor.getMentorId(), phaseId, pageable);
-
-            } else if (status != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndStatus(
-                                        mentor.getMentorId(), status, pageable);
-
-            } else if (assignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndAssignedDate(
-                                        mentor.getMentorId(),
-                                        assignedDate, pageable);
-
-            } else if (minAssignedDate != null && maxAssignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndAssignedDateBetween(
-                                        mentor.getMentorId(),
-                                        minAssignedDate, maxAssignedDate, pageable);
-
-            } else if (minAssignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndAssignedDateGreaterThanEqual(
-                                        mentor.getMentorId(),
-                                        minAssignedDate, pageable);
-
-            } else if (maxAssignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndAssignedDateLessThanEqual(
-                                        mentor.getMentorId(),
-                                        maxAssignedDate, pageable);
-
-            } else if (studentUsername != null && !studentUsername.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository.
-                                findAllByMentor_MentorIdAndStudent_User_UsernameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        studentUsername, pageable);
-
-            } else if (studentFullName != null && !studentFullName.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndStudent_User_FullNameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        studentFullName, pageable);
-
-            } else if (studentEmail != null && !studentEmail.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndStudent_User_EmailContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        studentEmail, pageable);
-
-            } else if (studentPhoneNumber != null && !studentPhoneNumber.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndStudent_User_PhoneNumberContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        studentPhoneNumber, pageable);
-
-            } else if (mentorUsername != null && !mentorUsername.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndMentor_User_UsernameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        mentorUsername, pageable);
-
-            } else if (mentorFullName != null && !mentorFullName.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndMentor_User_FullNameContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        mentorFullName, pageable);
-
-            } else if (mentorEmail != null && !mentorEmail.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndMentor_User_EmailContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        mentorEmail, pageable);
-
-            } else if (mentorPhoneNumber != null && !mentorPhoneNumber.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorIdAndMentor_User_PhoneNumberContainingIgnoreCase(
-                                        mentor.getMentorId(),
-                                        mentorPhoneNumber, pageable);
-
-            } else {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByMentor_MentorId(
-                                        mentor.getMentorId(), pageable);
-            }
-        } else {
-
-            Student student =
-                    studentRepository.findByUser_UserId(currentUser.getUserId())
-                            .orElseThrow(() ->
-                                    new EntityNotFoundException(
-                                            "User ID = "
-                                                    + currentUser.getUserId()
-                                                    + " chưa được liên kết với role STUDENT"));
-
-            if (mentorId != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndMentor_MentorId(
-                                        student.getStudentId(),
-                                        mentorId, pageable);
-
-            } else if (phaseId != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndPhase_PhaseId(
-                                        student.getStudentId(),
-                                        phaseId, pageable);
-
-            } else if (status != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndStatus(
-                                        student.getStudentId(),
-                                        status, pageable);
-
-            } else if (assignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndAssignedDate(
-                                        student.getStudentId(),
-                                        assignedDate, pageable);
-
-            } else if (minAssignedDate != null && maxAssignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndAssignedDateBetween(
-                                        student.getStudentId(),
-                                        minAssignedDate, maxAssignedDate, pageable);
-
-            } else if (minAssignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndAssignedDateGreaterThanEqual(
-                                        student.getStudentId(),
-                                        minAssignedDate, pageable);
-
-            } else if (maxAssignedDate != null) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndAssignedDateLessThanEqual(
-                                        student.getStudentId(),
-                                        maxAssignedDate, pageable);
-
-            } else if (mentorUsername != null && !mentorUsername.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndMentor_User_UsernameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        mentorUsername, pageable);
-
-            } else if (mentorFullName != null && !mentorFullName.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndMentor_User_FullNameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        mentorFullName, pageable);
-
-            } else if (mentorEmail != null && !mentorEmail.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndMentor_User_EmailContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        mentorEmail, pageable);
-
-            } else if (mentorPhoneNumber != null && !mentorPhoneNumber.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndMentor_User_PhoneNumberContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        mentorPhoneNumber, pageable);
-
-            } else if (studentUsername != null && !studentUsername.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndStudent_User_UsernameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        studentUsername, pageable);
-
-            } else if (studentFullName != null && !studentFullName.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndStudent_User_FullNameContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        studentFullName, pageable);
-
-            } else if (studentEmail != null && !studentEmail.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndStudent_User_EmailContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        studentEmail, pageable);
-
-            } else if (studentPhoneNumber != null && !studentPhoneNumber.isBlank()) {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentIdAndStudent_User_PhoneNumberContainingIgnoreCase(
-                                        student.getStudentId(),
-                                        studentPhoneNumber, pageable);
-
-            } else {
-
-                assignmentPage =
-                        internshipAssignmentRepository
-                                .findAllByStudent_StudentId(
-                                        student.getStudentId(), pageable);
-            }
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> assignmentPage =
+                    getAllForAdmin(filter, pageable);
+
+            case MENTOR -> assignmentPage =
+                    getAllForMentor(
+                            filter,
+                            pageable,
+                            currentUser);
+
+            case STUDENT -> assignmentPage =
+                    getAllForStudent(
+                            filter,
+                            pageable,
+                            currentUser);
+
+            default -> throw new ForbiddenException(
+                    "Không được phép truy cập");
         }
 
         List<InternshipAssignmentResponse> items =
@@ -500,8 +632,8 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                         .toList();
 
         Pagination pagination = Pagination.builder()
-                .currentPage(page)
-                .pageSize(size)
+                .currentPage(filter.getPage())
+                .pageSize(filter.getSize())
                 .totalPages(assignmentPage.getTotalPages())
                 .totalItems(assignmentPage.getTotalElements())
                 .build();
@@ -518,62 +650,38 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
         InternshipAssignment assignment =
                 internshipAssignmentRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy InternshipAssignment với ID = " + id));
 
         User currentUser = getCurrentUser();
 
-        if (currentUser.getRole() == UserRole.ADMIN) {
+        switch (currentUser.getRole()) {
 
-            return internshipAssignmentMapper.toResponse(assignment);
-        }
-
-        if (currentUser.getRole() == UserRole.MENTOR) {
-
-            Mentor mentor =
-                    mentorRepository.findByUser_UserId(
-                                    currentUser.getUserId())
-                            .orElseThrow(() ->
-                                    new EntityNotFoundException(
-                                            "User ID = "
-                                                    + currentUser.getUserId()
-                                                    + " chưa được liên kết với role MENTOR"));
-
-            if (!assignment.getMentor().getMentorId()
-                    .equals(mentor.getMentorId())) {
-
-                throw new AccessDeniedException(
-                        "Mentor ID = "
-                                + mentor.getMentorId()
-                                + " không có quyền xem Assignment ID = "
-                                + assignment.getAssignmentId());
+            case ADMIN -> {
+                return toResponse(assignment);
             }
 
-            return internshipAssignmentMapper.toResponse(assignment);
+            case MENTOR -> {
+                checkMentorPermission(
+                        assignment,
+                        currentUser);
+
+                return toResponse(assignment);
+            }
+
+            case STUDENT -> {
+                checkStudentPermission(
+                        assignment,
+                        currentUser);
+
+                return toResponse(assignment);
+            }
+
+            default -> throw new ForbiddenException(
+                    "Role "
+                            + currentUser.getRole()
+                            + " không có quyền truy cập InternshipAssignment");
         }
-
-        Student student =
-                studentRepository.findByUser_UserId(
-                                currentUser.getUserId()
-                        )
-                        .orElseThrow(() ->
-                                new EntityNotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role STUDENT"));
-
-
-        if (!assignment.getStudent().getStudentId()
-                .equals(student.getStudentId())) {
-
-            throw new AccessDeniedException(
-                    "Student ID = "
-                            + student.getStudentId()
-                            + " không có quyền xem Assignment ID = "
-                            + assignment.getAssignmentId());
-        }
-
-        return internshipAssignmentMapper.toResponse(assignment);
     }
 
     @Override
@@ -583,21 +691,21 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
         Student student =
                 studentRepository.findById(request.getStudentId())
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy Student với ID = "
                                                 + request.getStudentId()));
 
         Mentor mentor =
                 mentorRepository.findById(request.getMentorId())
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy Mentor với ID = "
                                                 + request.getMentorId()));
 
         InternshipPhase phase =
                 internshipPhaseRepository.findById(request.getPhaseId())
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy InternshipPhase với ID = "
                                                 + request.getPhaseId()));
 
@@ -621,6 +729,8 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
 
         assignment.setPhase(phase);
 
+        assignment.setAssignedDate(LocalDateTime.now());
+
         assignment.setStatus(InternshipAssignmentsStatus.PENDING);
 
         assignment.setCreatedAt(LocalDateTime.now());
@@ -640,7 +750,7 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
         InternshipAssignment assignment =
                 internshipAssignmentRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy InternshipAssignment với ID = " + id));
 
         boolean used =
@@ -651,7 +761,7 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                 && request.getMentorId() != null && !assignment.getMentor()
                 .getMentorId().equals(request.getMentorId())) {
 
-            throw new IllegalStateException(
+            throw new ConflictException(
                     "Không thể cập nhật Mentor cho Assignment ID = "
                             + id
                             + " vì assignment đã liên kết với AssessmentResult");
@@ -662,11 +772,14 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
             Mentor mentor =
                     mentorRepository.findById(request.getMentorId())
                             .orElseThrow(() ->
-                                    new EntityNotFoundException(
+                                    new NotFoundException(
                                             "Không tìm thấy Mentor với ID = "
                                                     + request.getMentorId()));
 
             assignment.setMentor(mentor);
+
+            assignment.setAssignedDate(LocalDateTime.now());
+
         }
 
         internshipAssignmentMapper.updateEntityFromDto(request, assignment);
@@ -686,7 +799,7 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
         InternshipAssignment assignment =
                 internshipAssignmentRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy InternshipAssignment với ID = " + id));
 
 //        assignment.setStatus(request.getStatus());
@@ -705,13 +818,13 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
         InternshipAssignment assignment =
                 internshipAssignmentRepository.findById(id)
                         .orElseThrow(() ->
-                                new EntityNotFoundException(
+                                new NotFoundException(
                                         "Không tìm thấy InternshipAssignment với ID = " + id));
 
         if (assignment.getAssessmentResults() != null
                 && !assignment.getAssessmentResults().isEmpty()) {
 
-            throw new IllegalStateException(
+            throw new ConflictException(
                     "Không thể xóa Assignment ID = "
                             + id
                             + " vì đã liên kết với AssessmentResult");
