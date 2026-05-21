@@ -2,6 +2,7 @@ package ra.edu.dto.request;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -29,6 +30,10 @@ public class EvaluationCriteriaFilterRequest {
             inclusive = true,
             message = "maxScore phải nhỏ hơn hoặc bằng 10"
     )
+    @Digits(
+            integer = 2,
+            fraction = 2,
+            message = "maxScore chỉ được tối đa 2 số thập phân")
     private BigDecimal maxScore;
 
     @DecimalMin(
@@ -41,6 +46,10 @@ public class EvaluationCriteriaFilterRequest {
             inclusive = true,
             message = "minMaxScore phải nhỏ hơn hoặc bằng 10"
     )
+    @Digits(
+            integer = 2,
+            fraction = 2,
+            message = "minMaxScore chỉ được tối đa 2 số thập phân")
     private BigDecimal minMaxScore;
 
     @DecimalMin(
@@ -53,5 +62,9 @@ public class EvaluationCriteriaFilterRequest {
             inclusive = true,
             message = "maxMaxScore phải nhỏ hơn hoặc bằng 10"
     )
+    @Digits(
+            integer = 2,
+            fraction = 2,
+            message = "maxMaxScore chỉ được tối đa 2 số thập phân")
     private BigDecimal maxMaxScore;
 }

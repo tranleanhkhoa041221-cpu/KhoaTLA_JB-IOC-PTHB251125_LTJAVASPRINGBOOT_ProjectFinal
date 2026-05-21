@@ -26,5 +26,9 @@ public class EvaluationCriteriaCreateRequest {
             value = "10.0",
             inclusive = true,
             message = "maxScore phải nhỏ hơn hoặc bằng 10")
+    @Digits(
+            integer = 2,
+            fraction = 2,
+            message = "maxScore chỉ được tối đa 2 số thập phân")
     private BigDecimal maxScore;
 }

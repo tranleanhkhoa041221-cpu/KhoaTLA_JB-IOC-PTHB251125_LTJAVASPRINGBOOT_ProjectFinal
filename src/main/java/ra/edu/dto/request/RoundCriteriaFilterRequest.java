@@ -2,6 +2,7 @@ package ra.edu.dto.request;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -33,6 +34,11 @@ public class RoundCriteriaFilterRequest {
             inclusive = true,
             message = "Weight phải nhỏ hơn hoặc bằng 1"
     )
+    @Digits(
+            integer = 1,
+            fraction = 2,
+            message = "Weight chỉ được tối đa 2 số thập phân")
+
     private BigDecimal weight;
 
     @DecimalMin(
@@ -45,6 +51,11 @@ public class RoundCriteriaFilterRequest {
             inclusive = true,
             message = "minWeight phải nhỏ hơn hoặc bằng 1"
     )
+    @Digits(
+            integer = 1,
+            fraction = 2,
+            message = "minWeight chỉ được tối đa 2 số thập phân")
+
     private BigDecimal minWeight;
 
     @DecimalMin(
@@ -57,5 +68,9 @@ public class RoundCriteriaFilterRequest {
             inclusive = true,
             message = "maxWeight phải nhỏ hơn hoặc bằng 1"
     )
+    @Digits(
+            integer = 1,
+            fraction = 2,
+            message = "maxWeight chỉ được tối đa 2 số thập phân")
     private BigDecimal maxWeight;
 }
