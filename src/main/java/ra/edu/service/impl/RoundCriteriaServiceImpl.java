@@ -5,7 +5,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import ra.edu.config.principal.UserPrincipal;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.RoundCriteriaCreateRequest;
 import ra.edu.dto.request.RoundCriteriaFilterRequest;
@@ -15,13 +18,13 @@ import ra.edu.dto.response.RoundCriteriaResponse;
 import ra.edu.entity.AssessmentRound;
 import ra.edu.entity.EvaluationCriteria;
 import ra.edu.entity.RoundCriteria;
+import ra.edu.entity.User;
 import ra.edu.exception.BadRequestException;
 import ra.edu.exception.ConflictException;
+import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.RoundCriteriaMapper;
-import ra.edu.repository.AssessmentRoundRepository;
-import ra.edu.repository.EvaluationCriteriaRepository;
-import ra.edu.repository.RoundCriteriaRepository;
+import ra.edu.repository.*;
 import ra.edu.service.RoundCriteriaService;
 
 import java.time.LocalDateTime;
@@ -39,9 +42,51 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
 
     private final RoundCriteriaMapper roundCriteriaMapper;
 
+    private final StudentRepository studentRepository;
+
+    private final MentorRepository mentorRepository;
+
+    private User getCurrentUser() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        UserPrincipal principal =
+                (UserPrincipal) authentication.getPrincipal();
+
+        return principal.getUser();
+    }
+
     @Override
     public PaginationResponse<RoundCriteriaResponse> getAllRoundCriteria(
             RoundCriteriaFilterRequest request) {
+
+        User currentUser = getCurrentUser();
+
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> {
+            }
+
+            case MENTOR -> mentorRepository
+                    .findByUser_UserId(currentUser.getUserId())
+                    .orElseThrow(() ->
+                            new NotFoundException(
+                                    "User ID = "
+                                            + currentUser.getUserId()
+                                            + " chưa được liên kết với role MENTOR"));
+
+            case STUDENT -> studentRepository
+                    .findByUser_UserId(currentUser.getUserId())
+                    .orElseThrow(() ->
+                            new NotFoundException(
+                                    "User ID = "
+                                            + currentUser.getUserId()
+                                            + " chưa được liên kết với role STUDENT"));
+
+            default -> throw new ForbiddenException(
+                    "Không có quyền truy cập RoundCriteria");
+        }
 
         if (request.getMinWeight() != null
                 && request.getMaxWeight() != null
@@ -184,14 +229,63 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
     @Override
     public RoundCriteriaResponse getRoundCriteriaById(Long id) {
 
-        RoundCriteria roundCriteria =
-                roundCriteriaRepository.findById(id)
+        User currentUser = getCurrentUser();
+
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> {
+
+                RoundCriteria roundCriteria =
+                        roundCriteriaRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
+                                                        + id));
+
+                return roundCriteriaMapper.toResponse(roundCriteria);
+            }
+
+            case MENTOR -> {
+
+                mentorRepository.findByUser_UserId(currentUser.getUserId())
                         .orElseThrow(() ->
                                 new NotFoundException(
-                                        "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
-                                                + id));
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role MENTOR"));
 
-        return roundCriteriaMapper.toResponse(roundCriteria);
+                RoundCriteria roundCriteria =
+                        roundCriteriaRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
+                                                        + id));
+
+                return roundCriteriaMapper.toResponse(roundCriteria);
+            }
+
+            case STUDENT -> {
+
+                studentRepository.findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role STUDENT"));
+
+                RoundCriteria roundCriteria =
+                        roundCriteriaRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
+                                                        + id));
+
+                return roundCriteriaMapper.toResponse(roundCriteria);
+            }
+
+            default -> throw new ForbiddenException(
+                    "Không có quyền truy cập RoundCriteria");
+        }
     }
 
     @Override

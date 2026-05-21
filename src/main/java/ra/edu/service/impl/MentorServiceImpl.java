@@ -186,7 +186,15 @@ public class MentorServiceImpl implements MentorService {
                                                         + currentUser.getUserId()
                                                         + " chưa được liên kết với role MENTOR"));
 
-                if (!currentMentor.getMentorId().equals(id)) {
+                Mentor mentor =
+                        mentorRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy Mentor với ID = "
+                                                        + id));
+
+                if (!mentor.getMentorId()
+                        .equals(currentMentor.getMentorId())) {
 
                     throw new ForbiddenException(
                             "Mentor ID = "
@@ -423,7 +431,16 @@ public class MentorServiceImpl implements MentorService {
 
         if (currentUser.getRole() == UserRole.MENTOR) {
 
-            if (!mentor.getUser().getUserId().equals(currentUser.getUserId())) {
+            Mentor currentMentor =
+                    mentorRepository.findByUser_UserId(currentUser.getUserId())
+                            .orElseThrow(() ->
+                                    new NotFoundException(
+                                            "User ID = "
+                                                    + currentUser.getUserId()
+                                                    + " chưa được liên kết với role MENTOR"));
+
+            if (!currentMentor.getMentorId().equals(id)) {
+
 
                 throw new ForbiddenException(
                         "Mentor ID = "

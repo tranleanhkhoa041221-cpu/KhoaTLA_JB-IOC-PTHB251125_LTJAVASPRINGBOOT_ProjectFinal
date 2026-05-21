@@ -5,7 +5,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import ra.edu.config.principal.UserPrincipal;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.AssessmentRoundCreateRequest;
 import ra.edu.dto.request.AssessmentRoundFilterRequest;
@@ -14,12 +17,16 @@ import ra.edu.dto.response.AssessmentRoundResponse;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.entity.AssessmentRound;
 import ra.edu.entity.InternshipPhase;
+import ra.edu.entity.User;
 import ra.edu.exception.BadRequestException;
 import ra.edu.exception.ConflictException;
+import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.AssessmentRoundMapper;
 import ra.edu.repository.AssessmentRoundRepository;
 import ra.edu.repository.InternshipPhaseRepository;
+import ra.edu.repository.MentorRepository;
+import ra.edu.repository.StudentRepository;
 import ra.edu.service.AssessmentRoundService;
 
 import java.time.LocalDate;
@@ -36,9 +43,51 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
 
     private final AssessmentRoundMapper assessmentRoundMapper;
 
+    private final StudentRepository studentRepository;
+
+    private final MentorRepository mentorRepository;
+
+    private User getCurrentUser() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        UserPrincipal principal =
+                (UserPrincipal) authentication.getPrincipal();
+
+        return principal.getUser();
+    }
+
     @Override
     public PaginationResponse<AssessmentRoundResponse> getAllAssessmentRounds(
             AssessmentRoundFilterRequest request) {
+
+        User currentUser = getCurrentUser();
+
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> {
+            }
+
+            case MENTOR -> mentorRepository
+                    .findByUser_UserId(currentUser.getUserId())
+                    .orElseThrow(() ->
+                            new NotFoundException(
+                                    "User ID = "
+                                            + currentUser.getUserId()
+                                            + " chưa được liên kết với role MENTOR"));
+
+            case STUDENT -> studentRepository
+                    .findByUser_UserId(currentUser.getUserId())
+                    .orElseThrow(() ->
+                            new NotFoundException(
+                                    "User ID = "
+                                            + currentUser.getUserId()
+                                            + " chưa được liên kết với role STUDENT"));
+
+            default -> throw new ForbiddenException(
+                    "Không có quyền truy cập AssessmentRound");
+        }
 
         if (request.getStartDate() != null
                 && request.getEndDate() != null
@@ -181,14 +230,63 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
     public AssessmentRoundResponse getAssessmentRoundById(
             Long id) {
 
-        AssessmentRound round =
-                assessmentRoundRepository.findById(id)
+        User currentUser = getCurrentUser();
+
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> {
+
+                AssessmentRound round =
+                        assessmentRoundRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy đợt đánh giá với ID = "
+                                                        + id));
+
+                return assessmentRoundMapper.toResponse(round);
+            }
+
+            case MENTOR -> {
+
+                mentorRepository.findByUser_UserId(currentUser.getUserId())
                         .orElseThrow(() ->
                                 new NotFoundException(
-                                        "Không tìm thấy đợt đánh giá với ID = "
-                                                + id));
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role MENTOR"));
 
-        return assessmentRoundMapper.toResponse(round);
+                AssessmentRound round =
+                        assessmentRoundRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy đợt đánh giá với ID = "
+                                                        + id));
+
+                return assessmentRoundMapper.toResponse(round);
+            }
+
+            case STUDENT -> {
+
+                studentRepository.findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role STUDENT"));
+
+                AssessmentRound round =
+                        assessmentRoundRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy đợt đánh giá với ID = "
+                                                        + id));
+
+                return assessmentRoundMapper.toResponse(round);
+            }
+
+            default -> throw new ForbiddenException(
+                    "Không có quyền truy cập AssessmentRound");
+        }
     }
 
     @Override

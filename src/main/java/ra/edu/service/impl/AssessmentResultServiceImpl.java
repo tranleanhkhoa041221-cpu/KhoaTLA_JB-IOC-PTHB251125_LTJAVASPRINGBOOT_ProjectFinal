@@ -1111,6 +1111,15 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
 
         User currentUser = getCurrentUser();
 
+
+        Mentor mentor =
+                mentorRepository.findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role MENTOR"));
+
         AssessmentResult result =
                 assessmentResultRepository.findById(id)
                         .orElseThrow(() ->
@@ -1145,6 +1154,15 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
     public AssessmentResultResponse deleteResult(Long id) {
 
         User currentUser = getCurrentUser();
+
+
+        Mentor mentor =
+                mentorRepository.findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role MENTOR"));
 
 
         AssessmentResult result =

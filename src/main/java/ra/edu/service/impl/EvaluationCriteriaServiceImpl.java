@@ -5,7 +5,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import ra.edu.config.principal.UserPrincipal;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.EvaluationCriteriaCreateRequest;
 import ra.edu.dto.request.EvaluationCriteriaFilterRequest;
@@ -13,11 +16,15 @@ import ra.edu.dto.request.EvaluationCriteriaUpdateRequest;
 import ra.edu.dto.response.EvaluationCriteriaResponse;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.entity.EvaluationCriteria;
+import ra.edu.entity.User;
 import ra.edu.exception.BadRequestException;
 import ra.edu.exception.ConflictException;
+import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.EvaluationCriteriaMapper;
 import ra.edu.repository.EvaluationCriteriaRepository;
+import ra.edu.repository.MentorRepository;
+import ra.edu.repository.StudentRepository;
 import ra.edu.service.EvaluationCriteriaService;
 
 
@@ -32,9 +39,51 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
 
     private final EvaluationCriteriaMapper evaluationCriteriaMapper;
 
+    private final StudentRepository studentRepository;
+
+    private final MentorRepository mentorRepository;
+
+    private User getCurrentUser() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        UserPrincipal principal =
+                (UserPrincipal) authentication.getPrincipal();
+
+        return principal.getUser();
+    }
+
     @Override
     public PaginationResponse<EvaluationCriteriaResponse> getAllCriteria(
             EvaluationCriteriaFilterRequest request) {
+
+        User currentUser = getCurrentUser();
+
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> {
+            }
+
+            case MENTOR -> mentorRepository
+                    .findByUser_UserId(currentUser.getUserId())
+                    .orElseThrow(() ->
+                            new NotFoundException(
+                                    "User ID = "
+                                            + currentUser.getUserId()
+                                            + " chưa được liên kết với role MENTOR"));
+
+            case STUDENT -> studentRepository
+                    .findByUser_UserId(currentUser.getUserId())
+                    .orElseThrow(() ->
+                            new NotFoundException(
+                                    "User ID = "
+                                            + currentUser.getUserId()
+                                            + " chưa được liên kết với role STUDENT"));
+
+            default -> throw new ForbiddenException(
+                    "Không có quyền truy cập EvaluationCriteria");
+        }
 
         if (request.getMinMaxScore() != null && request.getMaxMaxScore() != null
                 && request.getMinMaxScore()
@@ -134,14 +183,63 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
     @Override
     public EvaluationCriteriaResponse getCriterionById(Long id) {
 
-        EvaluationCriteria criteria =
-                evaluationCriteriaRepository.findById(id)
+        User currentUser = getCurrentUser();
+
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> {
+
+                EvaluationCriteria criteria =
+                        evaluationCriteriaRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy tiêu chí đánh giá với ID = "
+                                                        + id));
+
+                return evaluationCriteriaMapper.toResponse(criteria);
+            }
+
+            case MENTOR -> {
+
+                mentorRepository.findByUser_UserId(currentUser.getUserId())
                         .orElseThrow(() ->
                                 new NotFoundException(
-                                        "Không tìm thấy tiêu chí đánh giá với ID = "
-                                                + id));
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role MENTOR"));
 
-        return evaluationCriteriaMapper.toResponse(criteria);
+                EvaluationCriteria criteria =
+                        evaluationCriteriaRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy tiêu chí đánh giá với ID = "
+                                                        + id));
+
+                return evaluationCriteriaMapper.toResponse(criteria);
+            }
+
+            case STUDENT -> {
+
+                studentRepository.findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role STUDENT"));
+
+                EvaluationCriteria criteria =
+                        evaluationCriteriaRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy tiêu chí đánh giá với ID = "
+                                                        + id));
+
+                return evaluationCriteriaMapper.toResponse(criteria);
+            }
+
+            default -> throw new ForbiddenException(
+                    "Không có quyền truy cập EvaluationCriteria");
+        }
     }
 
     @Override

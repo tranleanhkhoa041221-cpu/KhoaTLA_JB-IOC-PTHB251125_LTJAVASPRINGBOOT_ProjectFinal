@@ -5,7 +5,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import ra.edu.config.principal.UserPrincipal;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.InternshipPhaseCreateRequest;
 import ra.edu.dto.request.InternshipPhaseFilterRequest;
@@ -13,11 +16,15 @@ import ra.edu.dto.request.InternshipPhaseUpdateRequest;
 import ra.edu.dto.response.InternshipPhaseResponse;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.entity.InternshipPhase;
+import ra.edu.entity.User;
 import ra.edu.exception.BadRequestException;
 import ra.edu.exception.ConflictException;
+import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.InternshipPhaseMapper;
 import ra.edu.repository.InternshipPhaseRepository;
+import ra.edu.repository.MentorRepository;
+import ra.edu.repository.StudentRepository;
 import ra.edu.service.InternshipPhaseService;
 
 import java.time.LocalDate;
@@ -32,9 +39,51 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
 
     private final InternshipPhaseMapper internshipPhaseMapper;
 
+    private final MentorRepository mentorRepository;
+
+    private final StudentRepository studentRepository;
+
+    private User getCurrentUser() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        UserPrincipal principal =
+                (UserPrincipal) authentication.getPrincipal();
+
+        return principal.getUser();
+    }
+
     @Override
     public PaginationResponse<InternshipPhaseResponse> getAllPhases(
             InternshipPhaseFilterRequest request) {
+
+        User currentUser = getCurrentUser();
+
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> {
+            }
+
+            case MENTOR -> mentorRepository
+                    .findByUser_UserId(currentUser.getUserId())
+                    .orElseThrow(() ->
+                            new NotFoundException(
+                                    "User ID = "
+                                            + currentUser.getUserId()
+                                            + " chưa được liên kết với role MENTOR"));
+
+            case STUDENT -> studentRepository
+                    .findByUser_UserId(currentUser.getUserId())
+                    .orElseThrow(() ->
+                            new NotFoundException(
+                                    "User ID = "
+                                            + currentUser.getUserId()
+                                            + " chưa được liên kết với role STUDENT"));
+
+            default -> throw new ForbiddenException(
+                    "Không có quyền truy cập InternshipPhase");
+        }
 
         if (request.getStartDate() != null
                 && request.getEndDate() != null
@@ -109,11 +158,60 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
     @Override
     public InternshipPhaseResponse getPhaseById(Long id) {
 
-        InternshipPhase phase = internshipPhaseRepository.findById(id)
-                .orElseThrow(() ->
-                        new NotFoundException("Không tìm thấy Phase với ID = " + id));
+        User currentUser = getCurrentUser();
 
-        return internshipPhaseMapper.toResponse(phase);
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> {
+
+                InternshipPhase phase =
+                        internshipPhaseRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy Phase với ID = " + id));
+
+                return internshipPhaseMapper.toResponse(phase);
+            }
+
+            case MENTOR -> {
+
+                mentorRepository.findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role MENTOR"));
+
+                InternshipPhase phase =
+                        internshipPhaseRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy Phase với ID = " + id));
+
+                return internshipPhaseMapper.toResponse(phase);
+            }
+
+            case STUDENT -> {
+
+                studentRepository.findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role STUDENT"));
+
+                InternshipPhase phase =
+                        internshipPhaseRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy Phase với ID = " + id));
+
+                return internshipPhaseMapper.toResponse(phase);
+            }
+
+            default -> throw new ForbiddenException(
+                    "Không có quyền truy cập InternshipPhase");
+        }
     }
 
     @Override

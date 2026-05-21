@@ -259,35 +259,6 @@ public class StudentServiceImpl implements StudentService {
                         pageable);
     }
 
-    private void checkMentorPermission(
-            Student student,
-            User currentUser) {
-
-        Mentor mentor =
-                mentorRepository.findByUser_UserId(
-                                currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role MENTOR"));
-
-        boolean assigned =
-                studentRepository
-                        .existsByInternshipAssignments_Mentor_MentorIdAndStudentId(
-                                mentor.getMentorId(),
-                                student.getStudentId());
-
-        if (!assigned) {
-
-            throw new ForbiddenException(
-                    "Mentor ID = "
-                            + mentor.getMentorId()
-                            + " không được phân công hướng dẫn Student ID = "
-                            + student.getStudentId());
-        }
-    }
-
     private StudentResponse toResponse(Student student) {
         return studentMapper.toResponse(student);
     }
@@ -407,7 +378,15 @@ public class StudentServiceImpl implements StudentService {
                                                         + currentUser.getUserId()
                                                         + " chưa được liên kết với role STUDENT"));
 
-                if (!currentStudent.getStudentId().equals(id)) {
+                Student student =
+                        studentRepository.findById(id)
+                                .orElseThrow(() ->
+                                        new NotFoundException(
+                                                "Không tìm thấy Student với ID = "
+                                                        + id));
+
+                if (!student.getStudentId()
+                        .equals(currentStudent.getStudentId())) {
 
                     throw new ForbiddenException(
                             "Student ID = "
@@ -417,7 +396,7 @@ public class StudentServiceImpl implements StudentService {
                                     + " (chỉ được xem thông tin của chính mình)");
                 }
 
-                return toResponse(currentStudent);
+                return toResponse(student);
             }
 
             default -> throw new ForbiddenException(
@@ -485,8 +464,18 @@ public class StudentServiceImpl implements StudentService {
 
         if (currentUser.getRole() == UserRole.STUDENT) {
 
-            if (!student.getUser().getUserId()
-                    .equals(currentUser.getUserId())) {
+            Student currentStudent =
+                    studentRepository.findByUser_UserId(
+                                    currentUser.getUserId())
+                            .orElseThrow(() ->
+                                    new NotFoundException(
+                                            "User ID = "
+                                                    + currentUser.getUserId()
+                                                    + " chưa được liên kết với role STUDENT"));
+
+
+            if (!currentStudent.getStudentId()
+                    .equals(student.getStudentId())) {
 
                 throw new ForbiddenException(
                         "Student ID = "
