@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import ra.edu.dto.ValidationError;
 import ra.edu.dto.response.ApiResponse;
 import ra.edu.entity.InternshipAssignmentsStatus;
@@ -197,6 +198,18 @@ public class GlobalExceptionHandler {
                         HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(
                         ex.getMessage(),
+                        null
+                ));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<?>> handleNoResourceFound(
+            NoResourceFoundException ex) {
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(
+                        "Endpoint không tồn tại: "
+                                + ex.getResourcePath(),
                         null
                 ));
     }

@@ -317,20 +317,44 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
     @Override
     public InternshipPhaseResponse deletePhase(Long id) {
 
-        InternshipPhase phase = internshipPhaseRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Không tìm thấy Phase với ID = " + id));
+        InternshipPhase phase =
+                internshipPhaseRepository.findById(id)
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "Không tìm thấy Phase với ID = " + id));
 
-        if (phase.getInternshipAssignments() != null
-                && !phase.getInternshipAssignments().isEmpty()) {
-            throw new ConflictException("Không thể xóa Phase ID = " + id + " vì đã liên kết với InternshipAssignment");
+        boolean hasAssignments = phase.getInternshipAssignments() != null &&
+                !phase.getInternshipAssignments().isEmpty();
+
+        boolean hasRounds =  phase.getAssessmentRounds() != null &&
+                !phase.getAssessmentRounds().isEmpty();
+
+        if (hasAssignments && hasRounds) {
+
+            throw new ConflictException(
+                    "Không thể xóa Phase ID = "
+                            + id
+                            + " vì đã liên kết với InternshipAssignment và AssessmentRound");
         }
 
-        if (phase.getAssessmentRounds() != null
-                && !phase.getAssessmentRounds().isEmpty()) {
-            throw new ConflictException("Không thể xóa Phase ID = " + id + " vì đã liên kết với AssessmentRound");
+        if (hasAssignments) {
+
+            throw new ConflictException(
+                    "Không thể xóa Phase ID = "
+                            + id
+                            + " vì đã liên kết với InternshipAssignment");
         }
 
-        InternshipPhaseResponse response = internshipPhaseMapper.toResponse(phase);
+        if (hasRounds) {
+
+            throw new ConflictException(
+                    "Không thể xóa Phase ID = "
+                            + id
+                            + " vì đã liên kết với AssessmentRound");
+        }
+
+        InternshipPhaseResponse response =
+                internshipPhaseMapper.toResponse(phase);
 
         internshipPhaseRepository.delete(phase);
 

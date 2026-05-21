@@ -265,8 +265,25 @@ public class UserServiceImpl implements UserService {
                     "Không được phép thay đổi trạng thái của ADMIN");
         }
 
-        if (studentRepository.existsByUser_UserId(
-                user.getUserId())) {
+        boolean hasStudent =
+                studentRepository.existsByUser_UserId(user.getUserId());
+
+        boolean hasMentor =
+                mentorRepository.existsByUser_UserId(user.getUserId());
+
+        boolean hasAssessmentResult =
+                assessmentResultRepository
+                        .existsByEvaluatedBy_UserId(user.getUserId());
+
+        if (hasMentor && hasAssessmentResult) {
+
+            throw new ConflictException(
+                    "Không thể thay đổi trạng thái User ID = "
+                            + user.getUserId()
+                            + " vì đã liên kết với Mentor và AssessmentResult");
+        }
+
+        if (hasStudent) {
 
             throw new ConflictException(
                     "Không thể thay đổi trạng thái User ID = "
@@ -274,8 +291,7 @@ public class UserServiceImpl implements UserService {
                             + " vì đã liên kết với Student");
         }
 
-        if (mentorRepository.existsByUser_UserId(
-                user.getUserId())) {
+        if (hasMentor) {
 
             throw new ConflictException(
                     "Không thể thay đổi trạng thái User ID = "
@@ -283,9 +299,7 @@ public class UserServiceImpl implements UserService {
                             + " vì đã liên kết với Mentor");
         }
 
-        if (assessmentResultRepository
-                .existsByEvaluatedBy_UserId(
-                        user.getUserId())) {
+        if (hasAssessmentResult) {
 
             throw new ConflictException(
                     "Không thể thay đổi trạng thái User ID = "
@@ -325,8 +339,25 @@ public class UserServiceImpl implements UserService {
                     "Không được phép thay đổi role của ADMIN");
         }
 
-        if (studentRepository.existsByUser_UserId(
-                user.getUserId())) {
+        boolean hasStudent =
+                studentRepository.existsByUser_UserId(user.getUserId());
+
+        boolean hasMentor =
+                mentorRepository.existsByUser_UserId(user.getUserId());
+
+        boolean hasAssessmentResult =
+                assessmentResultRepository
+                        .existsByEvaluatedBy_UserId(user.getUserId());
+
+        if (hasMentor && hasAssessmentResult) {
+
+            throw new ConflictException(
+                    "Không thể thay đổi role của User ID = "
+                            + user.getUserId()
+                            + " vì đã liên kết với Mentor và AssessmentResult");
+        }
+
+        if (hasStudent) {
 
             throw new ConflictException(
                     "Không thể thay đổi role của User ID = "
@@ -334,8 +365,7 @@ public class UserServiceImpl implements UserService {
                             + " vì đã liên kết với Student");
         }
 
-        if (mentorRepository.existsByUser_UserId(
-                user.getUserId())) {
+        if (hasMentor) {
 
             throw new ConflictException(
                     "Không thể thay đổi role của User ID = "
@@ -343,9 +373,7 @@ public class UserServiceImpl implements UserService {
                             + " vì đã liên kết với Mentor");
         }
 
-        if (assessmentResultRepository
-                .existsByEvaluatedBy_UserId(
-                        user.getUserId())) {
+        if (hasAssessmentResult) {
 
             throw new ConflictException(
                     "Không thể thay đổi role của User ID = "
@@ -380,8 +408,25 @@ public class UserServiceImpl implements UserService {
                     "Không được phép xóa tài khoản ADMIN");
         }
 
-        if (studentRepository.existsByUser_UserId(
-                user.getUserId())) {
+        boolean hasStudent =
+                studentRepository.existsByUser_UserId(user.getUserId());
+
+        boolean hasMentor =
+                mentorRepository.existsByUser_UserId(user.getUserId());
+
+        boolean hasAssessmentResult =
+                assessmentResultRepository
+                        .existsByEvaluatedBy_UserId(user.getUserId());
+
+        if (hasMentor && hasAssessmentResult) {
+
+            throw new ConflictException(
+                    "Không thể xóa User ID = "
+                            + user.getUserId()
+                            + " vì đã liên kết với Mentor và AssessmentResult");
+        }
+
+        if (hasStudent) {
 
             throw new ConflictException(
                     "Không thể xóa User ID = "
@@ -389,8 +434,7 @@ public class UserServiceImpl implements UserService {
                             + " vì đã liên kết với Student");
         }
 
-        if (mentorRepository.existsByUser_UserId(
-                user.getUserId())) {
+        if (hasMentor) {
 
             throw new ConflictException(
                     "Không thể xóa User ID = "
@@ -398,10 +442,7 @@ public class UserServiceImpl implements UserService {
                             + " vì đã liên kết với Mentor");
         }
 
-        if (assessmentResultRepository
-                .existsByEvaluatedBy_UserId(
-                        user.getUserId())) {
-//           if(user.getAssessmentResults() != null && !user.getAssessmentResults().isEmpty()) {}
+        if (hasAssessmentResult) {
 
             throw new ConflictException(
                     "Không thể xóa User ID = "

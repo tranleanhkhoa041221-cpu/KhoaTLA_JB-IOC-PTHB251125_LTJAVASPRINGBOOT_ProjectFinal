@@ -449,8 +449,23 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                                         "Không tìm thấy đợt đánh giá với ID = "
                                                 + id));
 
-        if (round.getRoundCriteria() != null
-                && !round.getRoundCriteria().isEmpty()) {
+        boolean hasRoundCriteria =
+                round.getRoundCriteria() != null
+                        && !round.getRoundCriteria().isEmpty();
+
+        boolean hasAssessmentResult =
+                round.getAssessmentResults() != null
+                        && !round.getAssessmentResults().isEmpty();
+
+        if (hasRoundCriteria && hasAssessmentResult) {
+
+            throw new ConflictException(
+                    "Không thể xóa đợt đánh giá ID = "
+                            + id
+                            + " vì đã liên kết với RoundCriteria và AssessmentResult");
+        }
+
+        if (hasRoundCriteria) {
 
             throw new ConflictException(
                     "Không thể xóa đợt đánh giá ID = "
@@ -458,8 +473,7 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                             + " vì đã liên kết với RoundCriteria");
         }
 
-        if (round.getAssessmentResults() != null
-                && !round.getAssessmentResults().isEmpty()) {
+        if (hasAssessmentResult) {
 
             throw new ConflictException(
                     "Không thể xóa đợt đánh giá ID = "
@@ -467,7 +481,8 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                             + " vì đã liên kết với AssessmentResult");
         }
 
-        AssessmentRoundResponse response = assessmentRoundMapper.toResponse(round);
+        AssessmentRoundResponse response =
+                assessmentRoundMapper.toResponse(round);
 
         assessmentRoundRepository.delete(round);
 

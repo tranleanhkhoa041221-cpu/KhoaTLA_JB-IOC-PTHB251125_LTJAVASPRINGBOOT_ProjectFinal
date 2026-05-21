@@ -333,8 +333,23 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
                                         "Không tìm thấy tiêu chí đánh giá với ID = "
                                                 + id));
 
-        if (criteria.getRoundCriteria() != null
-                && !criteria.getRoundCriteria().isEmpty()) {
+        boolean hasRoundCriteria =
+                criteria.getRoundCriteria() != null
+                        && !criteria.getRoundCriteria().isEmpty();
+
+        boolean hasAssessmentResult =
+                criteria.getAssessmentResults() != null
+                        && !criteria.getAssessmentResults().isEmpty();
+
+        if (hasRoundCriteria && hasAssessmentResult) {
+
+            throw new ConflictException(
+                    "Không thể xóa tiêu chí đánh giá ID = "
+                            + id
+                            + " vì đã liên kết với RoundCriteria và AssessmentResult");
+        }
+
+        if (hasRoundCriteria) {
 
             throw new ConflictException(
                     "Không thể xóa tiêu chí đánh giá ID = "
@@ -342,8 +357,7 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
                             + " vì đã liên kết với RoundCriteria");
         }
 
-        if (criteria.getAssessmentResults() != null
-                && !criteria.getAssessmentResults().isEmpty()) {
+        if (hasAssessmentResult) {
 
             throw new ConflictException(
                     "Không thể xóa tiêu chí đánh giá ID = "
