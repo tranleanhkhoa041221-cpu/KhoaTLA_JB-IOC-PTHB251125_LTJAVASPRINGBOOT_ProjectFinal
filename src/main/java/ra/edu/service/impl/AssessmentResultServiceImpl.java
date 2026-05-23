@@ -24,6 +24,7 @@ import ra.edu.mapper.AssessmentResultMapper;
 import ra.edu.repository.*;
 import ra.edu.service.AssessmentResultService;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -49,6 +50,8 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
 
     private final AssessmentResultMapper assessmentResultMapper;
 
+    private final RoundCriteriaRepository roundCriteriaRepository;
+
     private User getCurrentUser() {
 
         Authentication authentication =
@@ -66,18 +69,6 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                 && !internshipAssignmentRepository.existsById(filter.getAssignmentId())) {
             throw new NotFoundException(
                     "Không tìm thấy InternshipAssignment với ID = " + filter.getAssignmentId());
-        }
-
-        if (filter.getStudentId() != null
-                && !studentRepository.existsById(filter.getStudentId())) {
-            throw new NotFoundException(
-                    "Không tìm thấy Student với ID = " + filter.getStudentId());
-        }
-
-        if (filter.getMentorId() != null
-                && !mentorRepository.existsById(filter.getMentorId())) {
-            throw new NotFoundException(
-                    "Không tìm thấy Mentor với ID = " + filter.getMentorId());
         }
 
         if (filter.getPhaseId() != null
@@ -98,11 +89,6 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                     "Không tìm thấy EvaluationCriteria với ID = " + filter.getCriterionId());
         }
 
-        if (filter.getEvaluatedById() != null
-                && !userRepository.existsById(filter.getEvaluatedById())) {
-            throw new NotFoundException(
-                    "Không tìm thấy User với ID = " + filter.getEvaluatedById());
-        }
     }
 
     private void validateScoreAndDate(AssessmentResultFilterRequest filter) {
@@ -134,11 +120,23 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
 
         } else if (filter.getStudentId() != null) {
 
+            userRepository.findById(filter.getStudentId())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy Student với ID = " + filter.getStudentId()));
+
+            studentRepository.findByUser_UserId(filter.getStudentId())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getStudentId() + " chưa được liên kết với role STUDENT"));
+
             return assessmentResultRepository
                     .findAllByAssignment_Student_StudentId(
                             filter.getStudentId(), pageable);
 
         } else if (filter.getMentorId() != null) {
+
+            userRepository.findById(filter.getMentorId())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy Mentor với ID = " + filter.getMentorId()));
+
+            mentorRepository.findByUser_UserId(filter.getMentorId())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getMentorId() + " chưa được liên kết với role MENTOR"));
 
             return assessmentResultRepository
                     .findAllByAssignment_Mentor_MentorId(
@@ -169,6 +167,12 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                             filter.getCriterionId(), pageable);
 
         } else if (filter.getEvaluatedById() != null) {
+
+            userRepository.findById(filter.getEvaluatedById())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy User với ID = " + filter.getEvaluatedById()));
+
+            mentorRepository.findByUser_UserId(filter.getEvaluatedById())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getEvaluatedById() + " chưa được liên kết với role MENTOR"));
 
             return assessmentResultRepository
                     .findAllByEvaluatedBy_UserId(
@@ -351,6 +355,12 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
 
         } else if (filter.getStudentId() != null) {
 
+            userRepository.findById(filter.getStudentId())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy Student với ID = " + filter.getStudentId()));
+
+            studentRepository.findByUser_UserId(filter.getStudentId())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getStudentId() + " chưa được liên kết với role STUDENT"));
+
             return assessmentResultRepository
                     .findAllByAssignment_Mentor_MentorIdAndAssignment_Student_StudentId(
                             mentorId,
@@ -390,6 +400,12 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                             pageable);
 
         } else if (filter.getEvaluatedById() != null) {
+
+            userRepository.findById(filter.getEvaluatedById())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy User với ID = " + filter.getEvaluatedById()));
+
+            mentorRepository.findByUser_UserId(filter.getEvaluatedById())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getEvaluatedById() + " chưa được liên kết với role MENTOR"));
 
             return assessmentResultRepository
                     .findAllByAssignment_Mentor_MentorIdAndEvaluatedBy_UserId(
@@ -622,6 +638,12 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
 
         } else if (filter.getMentorId() != null) {
 
+            userRepository.findById(filter.getMentorId())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy Mentor với ID = " + filter.getMentorId()));
+
+            mentorRepository.findByUser_UserId(filter.getMentorId())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getMentorId() + " chưa được liên kết với role MENTOR"));
+
             return assessmentResultRepository
                     .findAllByAssignment_Student_StudentIdAndAssignment_Mentor_MentorId(
                             studentId,
@@ -661,6 +683,12 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                             pageable);
 
         } else if (filter.getEvaluatedById() != null) {
+
+            userRepository.findById(filter.getEvaluatedById())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy User với ID = " + filter.getEvaluatedById()));
+
+            mentorRepository.findByUser_UserId(filter.getEvaluatedById())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getEvaluatedById() + " chưa được liên kết với role MENTOR"));
 
             return assessmentResultRepository
                     .findAllByAssignment_Student_StudentIdAndEvaluatedBy_UserId(
@@ -970,11 +998,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
 
                 if (!ownerMentorId.equals(mentor.getMentorId())) {
 
-                    throw new ForbiddenException(
-                            "FORBIDDEN MENTOR: không có quyền truy cập AssessmentResult"
-                                    + " | currentMentorId=" + mentor.getMentorId()
-                                    + " | ownerMentorId=" + ownerMentorId
-                                    + " | resultId=" + result.getResultId());
+                    throw new NotFoundException("Không tìm thấy AssessmentResult với ID = " + id);
                 }
 
                 return toResponse(result);
@@ -1004,11 +1028,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
 
                 if (!ownerStudentId.equals(student.getStudentId())) {
 
-                    throw new ForbiddenException(
-                            "FORBIDDEN STUDENT: không có quyền truy cập AssessmentResult"
-                                    + " | currentStudentId=" + student.getStudentId()
-                                    + " | ownerStudentId=" + ownerStudentId
-                                    + " | resultId=" + result.getResultId());
+                    throw new NotFoundException("Không tìm thấy AssessmentResult với ID = " + id);
                 }
 
                 return toResponse(result);
@@ -1046,11 +1066,18 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         if (!assignment.getMentor().getMentorId()
                 .equals(mentor.getMentorId())) {
 
-            throw new ForbiddenException(
-                    "Mentor ID = "
-                            + mentor.getMentorId()
-                            + " không được phân công cho Assignment ID = "
-                            + assignment.getAssignmentId());
+            throw new NotFoundException(
+                    "Không tìm thấy Assignment với ID = " + assignment.getAssignmentId());
+        }
+
+        if (assignment.getStatus() != InternshipAssignmentsStatus.IN_PROGRESS) {
+
+            throw new BadRequestException(
+                    "Không thể tạo AssessmentResult với Assignment ID = "
+                            + assignment.getAssignmentId()
+                            + " vì trạng thái hiện tại là "
+                            + assignment.getStatus()
+                            + ". Chỉ Assignment ở trạng thái IN_PROGRESS mới tạo được AssessmentResult");
         }
 
         AssessmentRound round =
@@ -1060,6 +1087,37 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                                         "Không tìm thấy AssessmentRound với ID = "
                                                 + request.getRoundId()));
 
+        if (!Boolean.TRUE.equals(round.getIsActive())) {
+
+            throw new BadRequestException(
+                    "AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " hiện không hoạt động");
+        }
+        LocalDate now = LocalDate.now();
+
+        if (now.isBefore(round.getStartDate())
+                || now.isAfter(round.getEndDate())) {
+
+            throw new BadRequestException(
+                    "Hiện tại không nằm trong thời gian đánh giá của AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " | startDate = "
+                            + round.getStartDate()
+                            + " | endDate = "
+                            + round.getEndDate());
+        }
+
+        if (!assignment.getPhase().getPhaseId()
+                .equals(round.getPhase().getPhaseId())) {
+
+            throw new BadRequestException(
+                    "AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " không thuộc InternshipPhase của Assignment ID = "
+                            + assignment.getAssignmentId());
+        }
+
         EvaluationCriteria criterion =
                 evaluationCriteriaRepository.findById(
                                 request.getCriterionId()
@@ -1068,6 +1126,33 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                                 new NotFoundException(
                                         "Không tìm thấy EvaluationCriteria với ID = "
                                                 + request.getCriterionId()));
+
+        boolean existsRoundCriterion =
+                roundCriteriaRepository
+                        .existsByRound_RoundIdAndCriterion_CriterionId(
+                                round.getRoundId(),
+                                criterion.getCriterionId());
+
+        if (!existsRoundCriterion) {
+
+            throw new BadRequestException(
+                    "Criterion ID = "
+                            + criterion.getCriterionId()
+                            + " không thuộc AssessmentRound ID = "
+                            + round.getRoundId());
+        }
+
+        if (request.getScore()
+                .compareTo(criterion.getMaxScore()) > 0) {
+
+            throw new BadRequestException(
+                    "Score = "
+                            + request.getScore()
+                            + " không được lớn hơn MaxScore = "
+                            + criterion.getMaxScore()
+                            + " của Criterion ID = "
+                            + criterion.getCriterionId());
+        }
 
 
         if (assessmentResultRepository
@@ -1097,8 +1182,6 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
 
         result.setCreatedAt(LocalDateTime.now());
 
-        result.setUpdatedAt(LocalDateTime.now());
-
         assessmentResultRepository.save(result);
 
         return assessmentResultMapper.toResponse(result);
@@ -1112,13 +1195,12 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         User currentUser = getCurrentUser();
 
 
-        Mentor mentor =
-                mentorRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role MENTOR"));
+        mentorRepository.findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = "
+                                        + currentUser.getUserId()
+                                        + " chưa được liên kết với role MENTOR"));
 
         AssessmentResult result =
                 assessmentResultRepository.findById(id)
@@ -1127,27 +1209,71 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                                         "Không tìm thấy AssessmentResult với ID = "
                                                 + id));
 
+        if (request.getComments() != null) {
+            request.setComments(request.getComments().trim());
+        }
+
+        AssessmentRound round = result.getRound();
+
+        if (!Boolean.TRUE.equals(round.getIsActive())) {
+
+            throw new BadRequestException(
+                    "AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " hiện không hoạt động");
+        }
+
+        LocalDate now = LocalDate.now();
+
+        if (now.isBefore(round.getStartDate())
+                || now.isAfter(round.getEndDate())) {
+
+            throw new BadRequestException(
+                    "AssessmentRound hiện không còn trong thời gian đánh giá");
+        }
+
+        if (request.getScore() != null
+                && request.getScore()
+                .compareTo(result.getCriterion().getMaxScore()) > 0) {
+
+            throw new BadRequestException(
+                    "Score = "
+                            + request.getScore()
+                            + " không được lớn hơn MaxScore = "
+                            + result.getCriterion().getMaxScore()
+                            + " của Criterion ID = "
+                            + result.getCriterion().getCriterionId());
+        }
+
+        InternshipAssignmentsStatus status =
+                result.getAssignment().getStatus();
+
+        if (status != InternshipAssignmentsStatus.IN_PROGRESS) {
+
+            throw new BadRequestException(
+                    "Không thể cập nhật AssessmentResult"
+                            + " vì Assignment hiện tại có trạng thái "
+                            + status
+                            + ". Chỉ Assignment ở trạng thái IN_PROGRESS mới được cập nhật");
+        }
 
         if (!result.getEvaluatedBy().getUserId()
                 .equals(currentUser.getUserId())) {
 
-            throw new ForbiddenException(
-                    "FORBIDDEN MENTOR UPDATE: không có quyền cập nhật AssessmentResult"
-                            + " | currentMentorId=" + currentUser.getUserId()
-                            + " | ownerMentorId=" + result.getEvaluatedBy().getUserId()
-                            + " | resultId=" + result.getResultId());
-        }
-            assessmentResultMapper.updateEntityFromDto(request, result);
-
-            result.setEvaluationDate(LocalDateTime.now());
-
-            result.setUpdatedAt(LocalDateTime.now());
-
-            assessmentResultRepository.save(result);
-
-            return assessmentResultMapper.toResponse(result);
+            throw new NotFoundException(
+                    "Không tìm thấy AssessmentResult với ID = " + result.getResultId());
         }
 
+        assessmentResultMapper.updateEntityFromDto(request, result);
+
+        result.setEvaluationDate(LocalDateTime.now());
+
+        result.setUpdatedAt(LocalDateTime.now());
+
+        assessmentResultRepository.save(result);
+
+        return assessmentResultMapper.toResponse(result);
+    }
 
 
     @Override
@@ -1156,13 +1282,12 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
         User currentUser = getCurrentUser();
 
 
-        Mentor mentor =
-                mentorRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role MENTOR"));
+        mentorRepository.findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = "
+                                        + currentUser.getUserId()
+                                        + " chưa được liên kết với role MENTOR"));
 
 
         AssessmentResult result =
@@ -1172,15 +1297,23 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                                         "Không tìm thấy AssessmentResult với ID = "
                                                 + id));
 
+        InternshipAssignmentsStatus status =
+                result.getAssignment().getStatus();
+
+        if (status != InternshipAssignmentsStatus.IN_PROGRESS) {
+
+            throw new BadRequestException(
+                    "Không thể xóa AssessmentResult"
+                            + " vì Assignment hiện tại có trạng thái "
+                            + status
+                            + ". Chỉ Assignment ở trạng thái IN_PROGRESS mới được xóa");
+        }
 
         if (!result.getEvaluatedBy().getUserId()
                 .equals(currentUser.getUserId())) {
 
-            throw new ForbiddenException(
-                    "FORBIDDEN MENTOR DELETE: không có quyền xóa AssessmentResult"
-                            + " | currentMentorId=" + currentUser.getUserId()
-                            + " | ownerMentorId=" + result.getEvaluatedBy().getUserId()
-                            + " | resultId=" + result.getResultId());
+            throw new NotFoundException(
+                    "Không tìm thấy AssessmentResult với ID = " + result.getResultId());
         }
 
         AssessmentResultResponse response =

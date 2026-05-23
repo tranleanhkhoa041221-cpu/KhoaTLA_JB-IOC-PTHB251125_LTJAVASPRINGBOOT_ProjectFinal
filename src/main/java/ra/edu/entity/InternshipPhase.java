@@ -34,9 +34,9 @@ public class InternshipPhase {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = null;
 
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = null;
 
     @OneToMany(mappedBy = "phase")
     private List<InternshipAssignment> internshipAssignments;

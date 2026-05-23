@@ -39,9 +39,9 @@ public class InternshipAssignment {
     @Enumerated(EnumType.STRING)
     private InternshipAssignmentsStatus status = InternshipAssignmentsStatus.PENDING;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = null;
 
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = null;
 
     @OneToMany(mappedBy = "assignment")
     private List<AssessmentResult> assessmentResults;

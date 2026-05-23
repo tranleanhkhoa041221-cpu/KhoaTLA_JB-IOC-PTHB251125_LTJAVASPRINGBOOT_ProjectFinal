@@ -19,12 +19,10 @@ import ra.edu.entity.InternshipPhase;
 import ra.edu.entity.User;
 import ra.edu.exception.BadRequestException;
 import ra.edu.exception.ConflictException;
-import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
+import ra.edu.helper.AccessValidator;
 import ra.edu.mapper.InternshipPhaseMapper;
 import ra.edu.repository.InternshipPhaseRepository;
-import ra.edu.repository.MentorRepository;
-import ra.edu.repository.StudentRepository;
 import ra.edu.service.InternshipPhaseService;
 
 import java.time.LocalDate;
@@ -39,9 +37,7 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
 
     private final InternshipPhaseMapper internshipPhaseMapper;
 
-    private final MentorRepository mentorRepository;
-
-    private final StudentRepository studentRepository;
+    private final AccessValidator accessValidator;
 
     private User getCurrentUser() {
 
@@ -58,32 +54,7 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
     public PaginationResponse<InternshipPhaseResponse> getAllPhases(
             InternshipPhaseFilterRequest request) {
 
-        User currentUser = getCurrentUser();
-
-        switch (currentUser.getRole()) {
-
-            case ADMIN -> {
-            }
-
-            case MENTOR -> mentorRepository
-                    .findByUser_UserId(currentUser.getUserId())
-                    .orElseThrow(() ->
-                            new NotFoundException(
-                                    "User ID = "
-                                            + currentUser.getUserId()
-                                            + " chưa được liên kết với role MENTOR"));
-
-            case STUDENT -> studentRepository
-                    .findByUser_UserId(currentUser.getUserId())
-                    .orElseThrow(() ->
-                            new NotFoundException(
-                                    "User ID = "
-                                            + currentUser.getUserId()
-                                            + " chưa được liên kết với role STUDENT"));
-
-            default -> throw new ForbiddenException(
-                    "Không có quyền truy cập InternshipPhase");
-        }
+        accessValidator.validateAccess(getCurrentUser());
 
         if (request.getStartDate() != null
                 && request.getEndDate() != null
@@ -158,60 +129,12 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
     @Override
     public InternshipPhaseResponse getPhaseById(Long id) {
 
-        User currentUser = getCurrentUser();
+        accessValidator.validateAccess(getCurrentUser());
 
-        switch (currentUser.getRole()) {
+        InternshipPhase phase = internshipPhaseRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy Phase với ID = " + id));
 
-            case ADMIN -> {
-
-                InternshipPhase phase =
-                        internshipPhaseRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy Phase với ID = " + id));
-
-                return internshipPhaseMapper.toResponse(phase);
-            }
-
-            case MENTOR -> {
-
-                mentorRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role MENTOR"));
-
-                InternshipPhase phase =
-                        internshipPhaseRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy Phase với ID = " + id));
-
-                return internshipPhaseMapper.toResponse(phase);
-            }
-
-            case STUDENT -> {
-
-                studentRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role STUDENT"));
-
-                InternshipPhase phase =
-                        internshipPhaseRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy Phase với ID = " + id));
-
-                return internshipPhaseMapper.toResponse(phase);
-            }
-
-            default -> throw new ForbiddenException(
-                    "Không có quyền truy cập InternshipPhase");
-        }
+        return internshipPhaseMapper.toResponse(phase);
     }
 
     @Override
@@ -234,7 +157,6 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
         InternshipPhase phase = internshipPhaseMapper.toEntity(request);
 
         phase.setCreatedAt(LocalDateTime.now());
-        phase.setUpdatedAt(LocalDateTime.now());
 
         internshipPhaseRepository.save(phase);
 
@@ -259,22 +181,37 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
                         || (phase.getAssessmentRounds() != null
                         && !phase.getAssessmentRounds().isEmpty());
 
+        if (request.getPhaseName() != null) {
 
-        if (request.getPhaseName() != null
-                && !request.getPhaseName().equalsIgnoreCase(phase.getPhaseName())) {
+            request.setPhaseName(
+                    request.getPhaseName().trim());
 
-            if (used) {
+            if (request.getPhaseName().isBlank()) {
 
-                throw new ConflictException(
-                        "Phase đã được sử dụng, không thể thay đổi tên giai đoạn thực tập");
+                throw new BadRequestException(
+                        "Tên giai đoạn thực tập không được để trống");
             }
 
-            if (internshipPhaseRepository.existsByPhaseNameIgnoreCase(
-                    request.getPhaseName())) {
 
-                throw new ConflictException(
-                        "Tên giai đoạn thực tập đã tồn tại");
+            if (!request.getPhaseName().equalsIgnoreCase(phase.getPhaseName())) {
+
+                if (used) {
+
+                    throw new ConflictException(
+                            "Phase đã được sử dụng, không thể thay đổi tên giai đoạn thực tập");
+                }
+
+                if (internshipPhaseRepository.existsByPhaseNameIgnoreCase(
+                        request.getPhaseName())) {
+
+                    throw new ConflictException(
+                            "Tên giai đoạn thực tập đã tồn tại");
+                }
             }
+        }
+
+        if (request.getDescription() != null) {
+            request.setDescription(request.getDescription().trim());
         }
 
         if (request.getStartDate() != null && !request.getStartDate()
@@ -326,7 +263,7 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
         boolean hasAssignments = phase.getInternshipAssignments() != null &&
                 !phase.getInternshipAssignments().isEmpty();
 
-        boolean hasRounds =  phase.getAssessmentRounds() != null &&
+        boolean hasRounds = phase.getAssessmentRounds() != null &&
                 !phase.getAssessmentRounds().isEmpty();
 
         if (hasAssignments && hasRounds) {

@@ -31,9 +31,9 @@ public class EvaluationCriteria {
     @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal maxScore;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = null;
 
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = null;
 
     @OneToMany(mappedBy = "criterion")
     private List<RoundCriteria> roundCriteria;

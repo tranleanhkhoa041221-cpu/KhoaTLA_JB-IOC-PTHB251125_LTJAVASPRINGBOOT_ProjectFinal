@@ -191,8 +191,6 @@ public class UserServiceImpl implements UserService {
 
         user.setCreatedAt(LocalDateTime.now());
 
-        user.setUpdatedAt(LocalDateTime.now());
-
         userRepository.save(user);
 
         return userMapper.toResponse(user);
@@ -211,31 +209,78 @@ public class UserServiceImpl implements UserService {
                                         "Không tìm thấy User với ID = "
                                                 + id));
 
-        if (!user.getUsername()
-                .equalsIgnoreCase(request.getUsername())
-                && userRepository.existsByUsernameIgnoreCase(
-                request.getUsername())) {
+        if (request.getUsername() != null) {
 
-            throw new ConflictException(
-                    "Username đã tồn tại");
+            if (request.getUsername().isBlank()) {
+
+                throw new BadRequestException(
+                        "username không được để trống");
+            }
+
+
+            if (!user.getUsername()
+                    .equalsIgnoreCase(request.getUsername())
+                    && userRepository.existsByUsernameIgnoreCase(
+                    request.getUsername())) {
+
+                throw new ConflictException(
+                        "Username đã tồn tại");
+            }
         }
 
-        if (!user.getEmail()
-                .equalsIgnoreCase(request.getEmail())
-                && userRepository.existsByEmailIgnoreCase(
-                request.getEmail())) {
+        if (request.getFullName() != null) {
 
-            throw new ConflictException(
-                    "Email đã tồn tại");
+            request.setFullName(
+                    request.getFullName().trim());
+
+            if (request.getFullName().isBlank()) {
+
+                throw new BadRequestException(
+                        "Họ và tên không được để trống");
+            }
         }
 
-        if (!user.getPhoneNumber()
-                .equalsIgnoreCase(request.getPhoneNumber())
-                && userRepository.existsByPhoneNumber(
-                request.getPhoneNumber())) {
+        if (request.getEmail() != null) {
 
-            throw new ConflictException(
-                    "Số điện thoại đã tồn tại");
+            request.setEmail(
+                    request.getEmail().trim());
+
+            if (request.getEmail().isBlank()) {
+
+                throw new BadRequestException(
+                        "Email không được để trống");
+            }
+
+
+            if (!user.getEmail()
+                    .equalsIgnoreCase(request.getEmail())
+                    && userRepository.existsByEmailIgnoreCase(
+                    request.getEmail())) {
+
+                throw new ConflictException(
+                        "Email đã tồn tại");
+            }
+        }
+
+        if (request.getPhoneNumber() != null) {
+
+            request.setPhoneNumber(
+                    request.getPhoneNumber().trim());
+
+            if (request.getPhoneNumber().isBlank()) {
+
+                throw new BadRequestException(
+                        "Số điện thoại không được để trống");
+            }
+
+            if (!user.getPhoneNumber()
+                    .equalsIgnoreCase(request.getPhoneNumber())
+                    && userRepository.existsByPhoneNumber(
+                    request.getPhoneNumber())) {
+
+                throw new ConflictException(
+                        "Số điện thoại đã tồn tại");
+            }
         }
 
         userMapper.updateEntityFromDto(request, user);
@@ -311,7 +356,6 @@ public class UserServiceImpl implements UserService {
                 Boolean.parseBoolean(request.getIsActive()));
 
 //        user.setIsActive(request.getIsActive());
-
 
         user.setUpdatedAt(LocalDateTime.now());
 
@@ -450,8 +494,7 @@ public class UserServiceImpl implements UserService {
                             + " vì đã liên kết với AssessmentResult");
         }
 
-        UserResponse response =
-                userMapper.toResponse(user);
+        UserResponse response = userMapper.toResponse(user);
 
         userRepository.delete(user);
 

@@ -20,13 +20,11 @@ import ra.edu.entity.InternshipPhase;
 import ra.edu.entity.User;
 import ra.edu.exception.BadRequestException;
 import ra.edu.exception.ConflictException;
-import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
+import ra.edu.helper.AccessValidator;
 import ra.edu.mapper.AssessmentRoundMapper;
 import ra.edu.repository.AssessmentRoundRepository;
 import ra.edu.repository.InternshipPhaseRepository;
-import ra.edu.repository.MentorRepository;
-import ra.edu.repository.StudentRepository;
 import ra.edu.service.AssessmentRoundService;
 
 import java.time.LocalDate;
@@ -43,9 +41,8 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
 
     private final AssessmentRoundMapper assessmentRoundMapper;
 
-    private final StudentRepository studentRepository;
+    private final AccessValidator accessValidator;
 
-    private final MentorRepository mentorRepository;
 
     private User getCurrentUser() {
 
@@ -62,32 +59,7 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
     public PaginationResponse<AssessmentRoundResponse> getAllAssessmentRounds(
             AssessmentRoundFilterRequest request) {
 
-        User currentUser = getCurrentUser();
-
-        switch (currentUser.getRole()) {
-
-            case ADMIN -> {
-            }
-
-            case MENTOR -> mentorRepository
-                    .findByUser_UserId(currentUser.getUserId())
-                    .orElseThrow(() ->
-                            new NotFoundException(
-                                    "User ID = "
-                                            + currentUser.getUserId()
-                                            + " chưa được liên kết với role MENTOR"));
-
-            case STUDENT -> studentRepository
-                    .findByUser_UserId(currentUser.getUserId())
-                    .orElseThrow(() ->
-                            new NotFoundException(
-                                    "User ID = "
-                                            + currentUser.getUserId()
-                                            + " chưa được liên kết với role STUDENT"));
-
-            default -> throw new ForbiddenException(
-                    "Không có quyền truy cập AssessmentRound");
-        }
+        accessValidator.validateAccess(getCurrentUser());
 
         if (request.getStartDate() != null
                 && request.getEndDate() != null
@@ -227,66 +199,14 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
     }
 
     @Override
-    public AssessmentRoundResponse getAssessmentRoundById(
-            Long id) {
+    public AssessmentRoundResponse getAssessmentRoundById(Long id) {
 
-        User currentUser = getCurrentUser();
+        accessValidator.validateAccess(getCurrentUser());
 
-        switch (currentUser.getRole()) {
+        AssessmentRound round = assessmentRoundRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy đợt đánh giá với ID = " + id));
 
-            case ADMIN -> {
-
-                AssessmentRound round =
-                        assessmentRoundRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy đợt đánh giá với ID = "
-                                                        + id));
-
-                return assessmentRoundMapper.toResponse(round);
-            }
-
-            case MENTOR -> {
-
-                mentorRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role MENTOR"));
-
-                AssessmentRound round =
-                        assessmentRoundRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy đợt đánh giá với ID = "
-                                                        + id));
-
-                return assessmentRoundMapper.toResponse(round);
-            }
-
-            case STUDENT -> {
-
-                studentRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role STUDENT"));
-
-                AssessmentRound round =
-                        assessmentRoundRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy đợt đánh giá với ID = "
-                                                        + id));
-
-                return assessmentRoundMapper.toResponse(round);
-            }
-
-            default -> throw new ForbiddenException(
-                    "Không có quyền truy cập AssessmentRound");
-        }
+        return assessmentRoundMapper.toResponse(round);
     }
 
     @Override
@@ -300,6 +220,20 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                                 new NotFoundException(
                                         "Không tìm thấy Phase với ID = "
                                                 + request.getPhaseId()));
+
+        LocalDate now = LocalDate.now();
+
+        if (now.isBefore(phase.getStartDate())
+                || now.isAfter(phase.getEndDate())) {
+
+            throw new BadRequestException(
+                    "Hiện tại không nằm trong thời gian của InternshipPhase ID = "
+                            + phase.getPhaseId()
+                            + " | startDate = "
+                            + phase.getStartDate()
+                            + " | endDate = "
+                            + phase.getEndDate());
+        }
 
         if (assessmentRoundRepository
                 .existsByRoundNameIgnoreCaseAndPhase_PhaseId(
@@ -329,8 +263,6 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
 
         round.setCreatedAt(LocalDateTime.now());
 
-        round.setUpdatedAt(LocalDateTime.now());
-
         assessmentRoundRepository.save(round);
 
         return assessmentRoundMapper.toResponse(round);
@@ -355,27 +287,43 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                         || (round.getAssessmentResults() != null
                         && !round.getAssessmentResults().isEmpty());
 
-        if (request.getRoundName() != null
-                && !request.getRoundName()
-                .equalsIgnoreCase(round.getRoundName())) {
 
-            if (used) {
+        if (request.getRoundName() != null) {
 
-                throw new ConflictException(
-                        "Đợt đánh giá đã được sử dụng, không thể đổi tên đợt đánh giá");
+            request.setRoundName(
+                    request.getRoundName().trim());
+
+            if (request.getRoundName().isBlank()) {
+
+                throw new BadRequestException(
+                        "Tên đợt đánh giá không được để trống");
             }
 
-            if (assessmentRoundRepository
-                    .existsByRoundNameIgnoreCaseAndPhase_PhaseId(
-                            request.getRoundName(),
-                            round.getPhase().getPhaseId())) {
+            if (!request.getRoundName()
+                    .equalsIgnoreCase(round.getRoundName())) {
 
-                throw new ConflictException(
-                        "Tên đợt đánh giá : '"
-                                + request.getRoundName()
-                                + "' đã tồn tại trong Phase ID = "
-                                + round.getPhase().getPhaseId());
+                if (used) {
+
+                    throw new ConflictException(
+                            "Đợt đánh giá đã được sử dụng, không thể đổi tên đợt đánh giá");
+                }
+
+                if (assessmentRoundRepository
+                        .existsByRoundNameIgnoreCaseAndPhase_PhaseId(
+                                request.getRoundName(),
+                                round.getPhase().getPhaseId())) {
+
+                    throw new ConflictException(
+                            "Tên đợt đánh giá : '"
+                                    + request.getRoundName()
+                                    + "' đã tồn tại trong Phase ID = "
+                                    + round.getPhase().getPhaseId());
+                }
             }
+        }
+
+        if (request.getDescription() != null) {
+            request.setDescription(request.getDescription().trim());
         }
 
         if (request.getStartDate() != null

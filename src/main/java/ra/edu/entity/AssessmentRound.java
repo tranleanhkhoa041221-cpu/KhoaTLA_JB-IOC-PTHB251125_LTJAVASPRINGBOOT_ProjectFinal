@@ -41,9 +41,9 @@ public class AssessmentRound {
 
     private Boolean isActive = true;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = null;
 
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = null;
 
     @OneToMany(mappedBy = "round")
     private List<RoundCriteria> roundCriteria;

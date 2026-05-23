@@ -44,10 +44,10 @@ public class AssessmentResult {
     @Column(columnDefinition = "TEXT")
     private String comments;
 
-    private LocalDateTime evaluationDate = LocalDateTime.now();
+    private LocalDateTime evaluationDate = null;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = null;
 
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = null;
 
 }

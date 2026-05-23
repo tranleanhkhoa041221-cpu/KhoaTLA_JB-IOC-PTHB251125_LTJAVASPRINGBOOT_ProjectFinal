@@ -259,10 +259,6 @@ public class StudentServiceImpl implements StudentService {
                         pageable);
     }
 
-    private StudentResponse toResponse(Student student) {
-        return studentMapper.toResponse(student);
-    }
-
 
     @Override
     public PaginationResponse<StudentResponse> getAllStudents(
@@ -312,9 +308,14 @@ public class StudentServiceImpl implements StudentService {
                 .build();
     }
 
-
     @Override
     public StudentResponse getStudentById(Long id) {
+
+        userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy Student với ID = " + id));
+
+        Student student = studentRepository.findByUser_UserId(id)
+                .orElseThrow(() -> new NotFoundException("User ID = " + id + " chưa được liên kết với role STUDENT"));
 
         User currentUser = getCurrentUser();
 
@@ -322,85 +323,39 @@ public class StudentServiceImpl implements StudentService {
 
             case ADMIN -> {
 
-                Student student =
-                        studentRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy Student với ID = " + id
-                                        ));
-
-                return toResponse(student);
+                return studentMapper.toResponse(student);
             }
 
             case MENTOR -> {
 
-                Mentor mentor =
-                        mentorRepository.findByUser_UserId(
-                                        currentUser.getUserId())
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "User ID = "
-                                                        + currentUser.getUserId()
-                                                        + " chưa được liên kết với role MENTOR"));
+                Mentor currentMentor = mentorRepository.findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() -> new NotFoundException("User ID = " + currentUser.getUserId() + " chưa được liên kết với role MENTOR"));
 
-                Student student =
-                        studentRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy Student với ID = " + id
-                                        ));
-
-                boolean assigned =
-                        studentRepository
-                                .existsByInternshipAssignments_Mentor_MentorIdAndStudentId(
-                                        mentor.getMentorId(),
-                                        student.getStudentId());
+                boolean assigned = studentRepository.existsByInternshipAssignments_Mentor_MentorIdAndStudentId(
+                        currentMentor.getMentorId(), student.getStudentId());
 
                 if (!assigned) {
 
-                    throw new ForbiddenException(
-                            "Mentor ID = "
-                                    + mentor.getMentorId()
-                                    + " không được phân công hướng dẫn Student ID = "
-                                    + student.getStudentId());
+                    throw new NotFoundException("Không tìm thấy Student với ID = " + id);
                 }
 
-                return toResponse(student);
+                return studentMapper.toResponse(student);
             }
 
             case STUDENT -> {
 
-                Student currentStudent =
-                        studentRepository.findByUser_UserId(currentUser.getUserId())
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "User ID = "
-                                                        + currentUser.getUserId()
-                                                        + " chưa được liên kết với role STUDENT"));
+                Student currentStudent = studentRepository.findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() -> new NotFoundException("User ID = " + currentUser.getUserId() + " chưa được liên kết với role STUDENT"));
 
-                Student student =
-                        studentRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy Student với ID = "
-                                                        + id));
+                if (!student.getStudentId().equals(currentStudent.getStudentId())) {
 
-                if (!student.getStudentId()
-                        .equals(currentStudent.getStudentId())) {
-
-                    throw new ForbiddenException(
-                            "Student ID = "
-                                    + currentUser.getUserId()
-                                    + " không có quyền xem Student ID = "
-                                    + id
-                                    + " (chỉ được xem thông tin của chính mình)");
+                    throw new NotFoundException("Không tìm thấy Student với ID = " + id);
                 }
 
-                return toResponse(student);
+                return studentMapper.toResponse(student);
             }
 
-            default -> throw new ForbiddenException(
-                    " không có quyền truy cập Student");
+            default -> throw new ForbiddenException("Không có quyền truy cập");
         }
     }
 
@@ -443,8 +398,6 @@ public class StudentServiceImpl implements StudentService {
 
         student.setCreatedAt(LocalDateTime.now());
 
-        student.setUpdatedAt(LocalDateTime.now());
-
         studentRepository.save(student);
 
         return studentMapper.toResponse(student);
@@ -453,11 +406,12 @@ public class StudentServiceImpl implements StudentService {
     @Override
     public StudentResponse updateStudent(Long id, StudentUpdateRequest request) {
 
-        Student student =
-                studentRepository.findById(id)
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "Không tìm thấy Student với ID = " + id));
+        userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy Student với ID = " + id));
+
+        Student student = studentRepository.findByUser_UserId(id)
+                .orElseThrow(() -> new NotFoundException("User ID = " + id + " chưa được liên kết với role STUDENT"));
+
 
         User currentUser = getCurrentUser();
 
@@ -477,13 +431,19 @@ public class StudentServiceImpl implements StudentService {
             if (!currentStudent.getStudentId()
                     .equals(student.getStudentId())) {
 
-                throw new ForbiddenException(
-                        "Student ID = "
-                                + currentUser.getUserId()
-                                + " không có quyền cập nhật Student ID = "
-                                + id
-                                + " (chỉ được cập nhật thông tin của chính mình)");
+                throw new NotFoundException(
+                        "Không tìm thấy Student với ID = " + id);
             }
+        }
+
+        if (request.getMajor() != null) {
+            request.setMajor(request.getMajor().trim());
+        }
+        if (request.getClassName() != null) {
+            request.setClassName(request.getClassName().trim());
+        }
+        if (request.getAddress() != null) {
+            request.setAddress(request.getAddress().trim());
         }
 
         studentMapper.updateEntityFromDto(request, student);

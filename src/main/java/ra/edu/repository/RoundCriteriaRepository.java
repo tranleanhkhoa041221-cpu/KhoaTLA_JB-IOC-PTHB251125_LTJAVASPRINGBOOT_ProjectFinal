@@ -3,6 +3,8 @@ package ra.edu.repository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import ra.edu.entity.RoundCriteria;
 
 import java.math.BigDecimal;
@@ -28,6 +30,14 @@ public interface RoundCriteriaRepository extends JpaRepository<RoundCriteria, Lo
     Page<RoundCriteria> findAllByWeightLessThanEqual(BigDecimal maxWeight, Pageable pageable);
 
     Page<RoundCriteria> findAllByWeightBetween(BigDecimal minWeight, BigDecimal maxWeight, Pageable pageable);
+
+    @Query("""
+            SELECT COALESCE(SUM(rc.weight), 0)
+            FROM RoundCriteria rc
+            WHERE rc.round.roundId = :roundId
+            """)
+    BigDecimal sumWeightByRound_RoundId(
+            @Param("roundId") Long roundId);
 
 
 }

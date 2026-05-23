@@ -16,13 +16,13 @@ import ra.edu.dto.request.MentorUpdateRequest;
 import ra.edu.dto.response.MentorResponse;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.entity.Mentor;
+import ra.edu.entity.Student;
 import ra.edu.entity.User;
 import ra.edu.entity.UserRole;
 import ra.edu.exception.ConflictException;
 import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.MentorMapper;
-import ra.edu.repository.InternshipAssignmentRepository;
 import ra.edu.repository.MentorRepository;
 import ra.edu.repository.StudentRepository;
 import ra.edu.repository.UserRepository;
@@ -72,8 +72,7 @@ public class MentorServiceImpl implements MentorService {
         Pageable pageable = PageRequest.of(
                 filter.getPage() - 1,
                 filter.getSize(),
-                Sort.by("mentorId").descending()
-        );
+                Sort.by("mentorId").descending());
 
         Page<Mentor> mentorPage;
 
@@ -161,72 +160,43 @@ public class MentorServiceImpl implements MentorService {
     @Override
     public MentorResponse getMentorById(Long id) {
 
+        userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy Mentor với ID = " + id));
+
+        Mentor mentor = mentorRepository.findByUser_UserId(id)
+                .orElseThrow(() -> new NotFoundException("User ID = " + id + " chưa được liên kết với role MENTOR"));
+
         User currentUser = getCurrentUser();
 
         switch (currentUser.getRole()) {
 
             case ADMIN -> {
 
-                Mentor mentor =
-                        mentorRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy Mentor với ID = " + id));
-
                 return mentorMapper.toResponse(mentor);
             }
 
             case MENTOR -> {
 
-                Mentor currentMentor =
-                        mentorRepository.findByUser_UserId(currentUser.getUserId())
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "User ID = "
-                                                        + currentUser.getUserId()
-                                                        + " chưa được liên kết với role MENTOR"));
+                Mentor currentMentor = mentorRepository.findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() -> new NotFoundException("User ID = " + currentUser.getUserId() + " chưa được liên kết với role MENTOR"));
 
-                Mentor mentor =
-                        mentorRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy Mentor với ID = "
-                                                        + id));
+                if (!mentor.getMentorId().equals(currentMentor.getMentorId())) {
 
-                if (!mentor.getMentorId()
-                        .equals(currentMentor.getMentorId())) {
-
-                    throw new ForbiddenException(
-                            "Mentor ID = "
-                                    + currentUser.getUserId()
-                                    + " không có quyền xem Mentor ID = "
-                                    + id
-                                    + " (chỉ được xem thông tin của chính mình)");
+                    throw new NotFoundException("Không tìm thấy Mentor với ID = " + id);
                 }
 
-                return mentorMapper.toResponse(currentMentor);
+                return mentorMapper.toResponse(mentor);
             }
 
             case STUDENT -> {
 
                 studentRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role STUDENT"));
-
-                Mentor mentor =
-                        mentorRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy Mentor với ID = " + id));
+                        .orElseThrow(() -> new NotFoundException("User ID = " + currentUser.getUserId() + " chưa được liên kết với role STUDENT"));
 
                 return mentorMapper.toResponse(mentor);
             }
 
-            default -> throw new ForbiddenException(
-                    "Không có quyền truy cập Mentor");
+            default -> throw new ForbiddenException("Không có quyền truy cập");
         }
     }
 
@@ -246,8 +216,7 @@ public class MentorServiceImpl implements MentorService {
         Pageable pageable = PageRequest.of(
                 filter.getPage() - 1,
                 filter.getSize(),
-                Sort.by("mentorId").descending()
-        );
+                Sort.by("mentorId").descending());
 
         Page<Mentor> mentorPage;
 
@@ -259,8 +228,7 @@ public class MentorServiceImpl implements MentorService {
                             currentUser.getUserId(),
                             filter.getDepartment(),
                             filter.getAcademicRank(),
-                            pageable
-                    );
+                            pageable);
 
         } else if (filter.getDepartment() != null && !filter.getDepartment().isBlank()) {
 
@@ -268,8 +236,7 @@ public class MentorServiceImpl implements MentorService {
                     .findAllByInternshipAssignments_Student_StudentIdAndDepartmentContainingIgnoreCase(
                             currentUser.getUserId(),
                             filter.getDepartment(),
-                            pageable
-                    );
+                            pageable);
 
         } else if (filter.getAcademicRank() != null && !filter.getAcademicRank().isBlank()) {
 
@@ -277,16 +244,15 @@ public class MentorServiceImpl implements MentorService {
                     .findAllByInternshipAssignments_Student_StudentIdAndAcademicRankContainingIgnoreCase(
                             currentUser.getUserId(),
                             filter.getAcademicRank(),
-                            pageable
-                    );
+                            pageable);
+
         } else if (filter.getUsername() != null && !filter.getUsername().isBlank()) {
 
             mentorPage = mentorRepository
                     .findAllByInternshipAssignments_Student_StudentIdAndUser_UsernameContainingIgnoreCase(
                             currentUser.getUserId(),
                             filter.getUsername(),
-                            pageable
-                    );
+                            pageable);
 
         } else if (filter.getFullName() != null && !filter.getFullName().isBlank()) {
 
@@ -294,8 +260,7 @@ public class MentorServiceImpl implements MentorService {
                     .findAllByInternshipAssignments_Student_StudentIdAndUser_FullNameContainingIgnoreCase(
                             currentUser.getUserId(),
                             filter.getFullName(),
-                            pageable
-                    );
+                            pageable);
 
         } else if (filter.getEmail() != null && !filter.getEmail().isBlank()) {
 
@@ -303,8 +268,7 @@ public class MentorServiceImpl implements MentorService {
                     .findAllByInternshipAssignments_Student_StudentIdAndUser_EmailContainingIgnoreCase(
                             currentUser.getUserId(),
                             filter.getEmail(),
-                            pageable
-                    );
+                            pageable);
 
         } else if (filter.getPhoneNumber() != null && !filter.getPhoneNumber().isBlank()) {
 
@@ -312,8 +276,7 @@ public class MentorServiceImpl implements MentorService {
                     .findAllByInternshipAssignments_Student_StudentIdAndUser_PhoneNumberContainingIgnoreCase(
                             currentUser.getUserId(),
                             filter.getPhoneNumber(),
-                            pageable
-                    );
+                            pageable);
 
 
         } else {
@@ -321,8 +284,7 @@ public class MentorServiceImpl implements MentorService {
             mentorPage = mentorRepository
                     .findAllByInternshipAssignments_Student_StudentId(
                             currentUser.getUserId(),
-                            pageable
-                    );
+                            pageable);
         }
 
         List<MentorResponse> items = mentorPage.getContent()
@@ -348,32 +310,27 @@ public class MentorServiceImpl implements MentorService {
 
         User currentUser = getCurrentUser();
 
-        studentRepository.findByUser_UserId(currentUser.getUserId())
+        Student student = studentRepository.findByUser_UserId(currentUser.getUserId())
                 .orElseThrow(() ->
                         new NotFoundException(
                                 "User ID = "
                                         + currentUser.getUserId()
                                         + " chưa được liên kết với role STUDENT"));
 
-        Mentor mentor =
-                mentorRepository.findById(mentorId)
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "Không tìm thấy Mentor với ID = "
-                                                + mentorId));
+        userRepository.findById(mentorId)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy Mentor với ID = " + mentorId));
 
+        Mentor mentor = mentorRepository.findByUser_UserId(mentorId)
+                .orElseThrow(() -> new NotFoundException(
+                        "User ID = " + mentorId + " chưa được liên kết với role MENTOR"));
 
         boolean assigned =
                 mentorRepository.existsByInternshipAssignments_Student_StudentIdAndMentorId(
-                        currentUser.getUserId(), mentorId);
+                        student.getStudentId(), mentorId);
 
         if (!assigned) {
 
-            throw new ForbiddenException(
-                    "Student ID = "
-                            + currentUser.getUserId()
-                            + " không được phân công cho Mentor ID = "
-                            + mentorId);
+            throw new NotFoundException("Không tìm thấy Mentor với ID = " + mentorId);
         }
 
         return mentorMapper.toResponse(mentor);
@@ -421,11 +378,11 @@ public class MentorServiceImpl implements MentorService {
     @Override
     public MentorResponse updateMentor(Long id, MentorUpdateRequest request) {
 
-        Mentor mentor =
-                mentorRepository.findById(id)
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "Không tìm thấy Mentor với ID = " + id));
+        userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy User với ID = " + id));
+
+        Mentor mentor = mentorRepository.findByUser_UserId(id)
+                .orElseThrow(() -> new NotFoundException("User ID = " + id + " chưa được liên kết với role MENTOR"));
 
         User currentUser = getCurrentUser();
 
@@ -441,14 +398,17 @@ public class MentorServiceImpl implements MentorService {
 
             if (!currentMentor.getMentorId().equals(id)) {
 
+                throw new NotFoundException(
+                        "Không tìm thấy Mentor với ID = " + id);
 
-                throw new ForbiddenException(
-                        "Mentor ID = "
-                                + currentUser.getUserId()
-                                + " không có quyền cập nhật Mentor ID = "
-                                + id
-                                + " (chỉ được cập nhật thông tin của chính mình)");
             }
+        }
+
+        if (request.getDepartment() != null) {
+            request.setDepartment(request.getDepartment().trim());
+        }
+        if (request.getAcademicRank() != null) {
+            request.setAcademicRank(request.getAcademicRank().trim());
         }
 
         mentorMapper.updateEntityFromDto(request, mentor);

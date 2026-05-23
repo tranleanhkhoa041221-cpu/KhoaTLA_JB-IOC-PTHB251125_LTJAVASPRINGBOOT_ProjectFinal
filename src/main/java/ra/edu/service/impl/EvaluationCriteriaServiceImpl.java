@@ -19,12 +19,10 @@ import ra.edu.entity.EvaluationCriteria;
 import ra.edu.entity.User;
 import ra.edu.exception.BadRequestException;
 import ra.edu.exception.ConflictException;
-import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
+import ra.edu.helper.AccessValidator;
 import ra.edu.mapper.EvaluationCriteriaMapper;
 import ra.edu.repository.EvaluationCriteriaRepository;
-import ra.edu.repository.MentorRepository;
-import ra.edu.repository.StudentRepository;
 import ra.edu.service.EvaluationCriteriaService;
 
 
@@ -39,9 +37,7 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
 
     private final EvaluationCriteriaMapper evaluationCriteriaMapper;
 
-    private final StudentRepository studentRepository;
-
-    private final MentorRepository mentorRepository;
+    private final AccessValidator accessValidator;
 
     private User getCurrentUser() {
 
@@ -58,32 +54,7 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
     public PaginationResponse<EvaluationCriteriaResponse> getAllCriteria(
             EvaluationCriteriaFilterRequest request) {
 
-        User currentUser = getCurrentUser();
-
-        switch (currentUser.getRole()) {
-
-            case ADMIN -> {
-            }
-
-            case MENTOR -> mentorRepository
-                    .findByUser_UserId(currentUser.getUserId())
-                    .orElseThrow(() ->
-                            new NotFoundException(
-                                    "User ID = "
-                                            + currentUser.getUserId()
-                                            + " chưa được liên kết với role MENTOR"));
-
-            case STUDENT -> studentRepository
-                    .findByUser_UserId(currentUser.getUserId())
-                    .orElseThrow(() ->
-                            new NotFoundException(
-                                    "User ID = "
-                                            + currentUser.getUserId()
-                                            + " chưa được liên kết với role STUDENT"));
-
-            default -> throw new ForbiddenException(
-                    "Không có quyền truy cập EvaluationCriteria");
-        }
+        accessValidator.validateAccess(getCurrentUser());
 
         if (request.getMinMaxScore() != null && request.getMaxMaxScore() != null
                 && request.getMinMaxScore()
@@ -183,63 +154,13 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
     @Override
     public EvaluationCriteriaResponse getCriterionById(Long id) {
 
-        User currentUser = getCurrentUser();
+        accessValidator.validateAccess(getCurrentUser());
 
-        switch (currentUser.getRole()) {
+        EvaluationCriteria criteria = evaluationCriteriaRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy tiêu chí đánh giá với ID = " + id));
 
-            case ADMIN -> {
+        return evaluationCriteriaMapper.toResponse(criteria);
 
-                EvaluationCriteria criteria =
-                        evaluationCriteriaRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy tiêu chí đánh giá với ID = "
-                                                        + id));
-
-                return evaluationCriteriaMapper.toResponse(criteria);
-            }
-
-            case MENTOR -> {
-
-                mentorRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role MENTOR"));
-
-                EvaluationCriteria criteria =
-                        evaluationCriteriaRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy tiêu chí đánh giá với ID = "
-                                                        + id));
-
-                return evaluationCriteriaMapper.toResponse(criteria);
-            }
-
-            case STUDENT -> {
-
-                studentRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role STUDENT"));
-
-                EvaluationCriteria criteria =
-                        evaluationCriteriaRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy tiêu chí đánh giá với ID = "
-                                                        + id));
-
-                return evaluationCriteriaMapper.toResponse(criteria);
-            }
-
-            default -> throw new ForbiddenException(
-                    "Không có quyền truy cập EvaluationCriteria");
-        }
     }
 
     @Override
@@ -254,12 +175,9 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
                     "Tên tiêu chí đánh giá đã tồn tại");
         }
 
-        EvaluationCriteria criteria =
-                evaluationCriteriaMapper.toEntity(request);
+        EvaluationCriteria criteria = evaluationCriteriaMapper.toEntity(request);
 
         criteria.setCreatedAt(LocalDateTime.now());
-
-        criteria.setUpdatedAt(LocalDateTime.now());
 
         evaluationCriteriaRepository.save(criteria);
 
@@ -284,14 +202,25 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
                         || (criteria.getAssessmentResults() != null
                         && !criteria.getAssessmentResults().isEmpty());
 
-        if (request.getCriterionName() != null
-                && !request.getCriterionName()
-                .equalsIgnoreCase(criteria.getCriterionName())) {
+        if (request.getCriterionName() != null) {
 
-            if (used) {
+            request.setCriterionName(
+                    request.getCriterionName().trim());
 
-                throw new ConflictException(
-                        "Tiêu chí đánh giá đã được sử dụng, không thể thay đổi tên tiêu chí đánh giá");
+            if (request.getCriterionName().isBlank()) {
+
+                throw new BadRequestException(
+                        "Tên tiêu chí đánh giá không được để trống");
+            }
+
+            if (!request.getCriterionName()
+                    .equalsIgnoreCase(criteria.getCriterionName())) {
+
+                if (used) {
+
+                    throw new ConflictException(
+                            "Tiêu chí đánh giá đã được sử dụng, không thể thay đổi tên tiêu chí đánh giá");
+                }
             }
 
             if (evaluationCriteriaRepository
@@ -303,6 +232,10 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
             }
         }
 
+        if (request.getDescription() != null) {
+            request.setDescription(request.getDescription().trim());
+        }
+
         if (request.getMaxScore() != null
                 && request.getMaxScore()
                 .compareTo(criteria.getMaxScore()) != 0
@@ -312,8 +245,7 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
                     "Tiêu chí đánh giá đã được sử dụng, không thể thay đổi điểm tối đa");
         }
 
-        evaluationCriteriaMapper
-                .updateEntityFromDto(request, criteria);
+        evaluationCriteriaMapper.updateEntityFromDto(request, criteria);
 
         criteria.setUpdatedAt(LocalDateTime.now());
 

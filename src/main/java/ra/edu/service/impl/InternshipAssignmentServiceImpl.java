@@ -22,12 +22,10 @@ import ra.edu.exception.ConflictException;
 import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.InternshipAssignmentMapper;
-import ra.edu.repository.InternshipAssignmentRepository;
-import ra.edu.repository.InternshipPhaseRepository;
-import ra.edu.repository.MentorRepository;
-import ra.edu.repository.StudentRepository;
+import ra.edu.repository.*;
 import ra.edu.service.InternshipAssignmentService;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -36,6 +34,8 @@ import java.util.List;
 public class InternshipAssignmentServiceImpl implements InternshipAssignmentService {
 
     private final InternshipAssignmentRepository internshipAssignmentRepository;
+
+    private final UserRepository userRepository;
 
     private final StudentRepository studentRepository;
 
@@ -58,22 +58,6 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
 
     private void validateFilterIds(
             InternshipAssignmentFilterRequest filter) {
-
-        if (filter.getStudentId() != null
-                && !studentRepository.existsById(filter.getStudentId())) {
-
-            throw new NotFoundException(
-                    "Không tìm thấy Student với ID = "
-                            + filter.getStudentId());
-        }
-
-        if (filter.getMentorId() != null
-                && !mentorRepository.existsById(filter.getMentorId())) {
-
-            throw new NotFoundException(
-                    "Không tìm thấy Mentor với ID = "
-                            + filter.getMentorId());
-        }
 
         if (filter.getPhaseId() != null
                 && !internshipPhaseRepository.existsById(filter.getPhaseId())) {
@@ -103,12 +87,24 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
 
         if (filter.getStudentId() != null) {
 
+            userRepository.findById(filter.getStudentId())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy Student với ID = " + filter.getStudentId()));
+
+            studentRepository.findByUser_UserId(filter.getStudentId())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getStudentId() + " chưa được liên kết với role STUDENT"));
+
             return internshipAssignmentRepository
                     .findAllByStudent_StudentId(
                             filter.getStudentId(),
                             pageable);
 
         } else if (filter.getMentorId() != null) {
+
+            userRepository.findById(filter.getMentorId())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy Mentor với ID = " + filter.getMentorId()));
+
+            mentorRepository.findByUser_UserId(filter.getMentorId())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getMentorId() + " chưa được liên kết với role MENTOR"));
 
             return internshipAssignmentRepository
                     .findAllByMentor_MentorId(
@@ -243,6 +239,12 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
         Long mentorId = mentor.getMentorId();
 
         if (filter.getStudentId() != null) {
+
+            userRepository.findById(filter.getStudentId())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy Student với ID = " + filter.getStudentId()));
+
+            studentRepository.findByUser_UserId(filter.getStudentId())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getStudentId() + " chưa được liên kết với role STUDENT"));
 
             return internshipAssignmentRepository
                     .findAllByMentor_MentorIdAndStudent_StudentId(
@@ -395,6 +397,12 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
         Long studentId = student.getStudentId();
 
         if (filter.getMentorId() != null) {
+
+            userRepository.findById(filter.getMentorId())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy Mentor với ID = " + filter.getMentorId()));
+
+            mentorRepository.findByUser_UserId(filter.getMentorId())
+                    .orElseThrow(() -> new NotFoundException("User ID = " + filter.getMentorId() + " chưa được liên kết với role MENTOR"));
 
             return internshipAssignmentRepository
                     .findAllByStudent_StudentIdAndMentor_MentorId(
@@ -634,11 +642,8 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
 
                 if (!ownerMentorId.equals(mentor.getMentorId())) {
 
-                    throw new ForbiddenException(
-                            "FORBIDDEN MENTOR: không có quyền truy cập InternshipAssignment"
-                                    + " | currentMentorId=" + mentor.getMentorId()
-                                    + " | ownerMentorId=" + ownerMentorId
-                                    + " | assignmentId=" + assignment.getAssignmentId());
+                    throw new NotFoundException(
+                            "Không tìm thấy InternshipAssignment với ID = " + id);
                 }
 
                 return toResponse(assignment);
@@ -666,11 +671,8 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
 
                 if (!ownerStudentId.equals(student.getStudentId())) {
 
-                    throw new ForbiddenException(
-                            "FORBIDDEN STUDENT: không có quyền truy cập InternshipAssignment"
-                                    + " | currentStudentId=" + student.getStudentId()
-                                    + " | ownerStudentId=" + ownerStudentId
-                                    + " | assignmentId=" + assignment.getAssignmentId());
+                    throw new NotFoundException(
+                            "Không tìm thấy InternshipAssignment với ID = " + id);
                 }
 
                 return toResponse(assignment);
@@ -684,19 +686,19 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
     public InternshipAssignmentResponse createAssignment(
             InternshipAssignmentCreateRequest request) {
 
+        userRepository.findById(request.getStudentId())
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy Student với ID = " + request.getStudentId()));
+
         Student student =
-                studentRepository.findById(request.getStudentId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "Không tìm thấy Student với ID = "
-                                                + request.getStudentId()));
+                studentRepository.findByUser_UserId(request.getStudentId())
+                        .orElseThrow(() -> new NotFoundException("User ID = " + request.getStudentId() + " chưa được liên kết với role STUDENT"));
+
+        userRepository.findById(request.getMentorId())
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy Mentor với ID = " + request.getMentorId()));
 
         Mentor mentor =
-                mentorRepository.findById(request.getMentorId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "Không tìm thấy Mentor với ID = "
-                                                + request.getMentorId()));
+                mentorRepository.findByUser_UserId(request.getMentorId())
+                        .orElseThrow(() -> new NotFoundException("User ID = " + request.getMentorId() + " chưa được liên kết với role MENTOR"));
 
         InternshipPhase phase =
                 internshipPhaseRepository.findById(request.getPhaseId())
@@ -705,12 +707,26 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                                         "Không tìm thấy InternshipPhase với ID = "
                                                 + request.getPhaseId()));
 
+        LocalDate now = LocalDate.now();
+
+        if (now.isBefore(phase.getStartDate())
+                || now.isAfter(phase.getEndDate())) {
+
+            throw new BadRequestException(
+                    "Hiện tại không nằm trong thời gian của InternshipPhase ID = "
+                            + phase.getPhaseId()
+                            + " | startDate = "
+                            + phase.getStartDate()
+                            + " | endDate = "
+                            + phase.getEndDate());
+        }
+
         if (internshipAssignmentRepository
                 .existsByStudent_StudentIdAndPhase_PhaseId(
                         request.getStudentId(),
                         request.getPhaseId())) {
 
-            throw new IllegalStateException(
+            throw new ConflictException(
                     "Student ID = "
                             + request.getStudentId()
                             + " đã được phân công trong Phase ID = "
@@ -731,8 +747,6 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
 
         assignment.setCreatedAt(LocalDateTime.now());
 
-        assignment.setUpdatedAt(LocalDateTime.now());
-
         internshipAssignmentRepository.save(assignment);
 
         return internshipAssignmentMapper.toResponse(assignment);
@@ -748,6 +762,15 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                         .orElseThrow(() ->
                                 new NotFoundException(
                                         "Không tìm thấy InternshipAssignment với ID = " + id));
+
+        if (assignment.getStatus() != InternshipAssignmentsStatus.PENDING) {
+
+            throw new BadRequestException(
+                    "Không thể cập nhật Assignment ID = "
+                            + id
+                            + " vì trạng thái hiện tại là " + assignment.getStatus()
+                            + ". Chỉ ở trạng thái PENDING mới được cập nhật");
+        }
 
         boolean used =
                 assignment.getAssessmentResults() != null
@@ -765,12 +788,12 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
 
         if (request.getMentorId() != null) {
 
+            userRepository.findById(request.getMentorId())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy Mentor với ID = " + request.getMentorId()));
+
             Mentor mentor =
-                    mentorRepository.findById(request.getMentorId())
-                            .orElseThrow(() ->
-                                    new NotFoundException(
-                                            "Không tìm thấy Mentor với ID = "
-                                                    + request.getMentorId()));
+                    mentorRepository.findByUser_UserId(request.getMentorId())
+                            .orElseThrow(() -> new NotFoundException("User ID = " + request.getMentorId() + " chưa được liên kết với role MENTOR"));
 
             assignment.setMentor(mentor);
 
@@ -816,6 +839,15 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                         .orElseThrow(() ->
                                 new NotFoundException(
                                         "Không tìm thấy InternshipAssignment với ID = " + id));
+
+        if (assignment.getStatus() != InternshipAssignmentsStatus.PENDING) {
+
+            throw new BadRequestException(
+                    "Không thể xóa Assignment ID = "
+                            + id
+                            + " vì trạng thái hiện tại là " + assignment.getStatus()
+                            + ". Chỉ ở trạng thái PENDING mới được xoá");
+        }
 
         if (assignment.getAssessmentResults() != null
                 && !assignment.getAssessmentResults().isEmpty()) {

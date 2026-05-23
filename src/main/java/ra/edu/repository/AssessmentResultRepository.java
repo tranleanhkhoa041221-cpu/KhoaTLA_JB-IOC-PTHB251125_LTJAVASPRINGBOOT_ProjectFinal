@@ -19,6 +19,11 @@ public interface AssessmentResultRepository extends JpaRepository<AssessmentResu
             Long criterionId
     );
 
+    boolean existsByRound_RoundIdAndCriterion_CriterionId(
+            Long roundId,
+            Long criterionId
+    );
+
 
     Page<AssessmentResult> findAllByAssignment_AssignmentId(
             Long assignmentId,

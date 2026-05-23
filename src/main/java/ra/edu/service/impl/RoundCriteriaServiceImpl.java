@@ -21,12 +21,14 @@ import ra.edu.entity.RoundCriteria;
 import ra.edu.entity.User;
 import ra.edu.exception.BadRequestException;
 import ra.edu.exception.ConflictException;
-import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
+import ra.edu.helper.AccessValidator;
 import ra.edu.mapper.RoundCriteriaMapper;
 import ra.edu.repository.*;
 import ra.edu.service.RoundCriteriaService;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -42,9 +44,9 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
 
     private final RoundCriteriaMapper roundCriteriaMapper;
 
-    private final StudentRepository studentRepository;
+    private final AssessmentResultRepository assessmentResultRepository;
 
-    private final MentorRepository mentorRepository;
+    private final AccessValidator accessValidator;
 
     private User getCurrentUser() {
 
@@ -61,32 +63,7 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
     public PaginationResponse<RoundCriteriaResponse> getAllRoundCriteria(
             RoundCriteriaFilterRequest request) {
 
-        User currentUser = getCurrentUser();
-
-        switch (currentUser.getRole()) {
-
-            case ADMIN -> {
-            }
-
-            case MENTOR -> mentorRepository
-                    .findByUser_UserId(currentUser.getUserId())
-                    .orElseThrow(() ->
-                            new NotFoundException(
-                                    "User ID = "
-                                            + currentUser.getUserId()
-                                            + " chưa được liên kết với role MENTOR"));
-
-            case STUDENT -> studentRepository
-                    .findByUser_UserId(currentUser.getUserId())
-                    .orElseThrow(() ->
-                            new NotFoundException(
-                                    "User ID = "
-                                            + currentUser.getUserId()
-                                            + " chưa được liên kết với role STUDENT"));
-
-            default -> throw new ForbiddenException(
-                    "Không có quyền truy cập RoundCriteria");
-        }
+        accessValidator.validateAccess(getCurrentUser());
 
         if (request.getMinWeight() != null
                 && request.getMaxWeight() != null
@@ -229,63 +206,15 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
     @Override
     public RoundCriteriaResponse getRoundCriteriaById(Long id) {
 
-        User currentUser = getCurrentUser();
+        accessValidator.validateAccess(getCurrentUser());
 
-        switch (currentUser.getRole()) {
+        RoundCriteria roundCriteria =
+                roundCriteriaRepository.findById(id)
+                        .orElseThrow(() -> new NotFoundException(
+                                "Không tìm thấy tiêu chí trong đợt đánh giá với ID = " + id));
 
-            case ADMIN -> {
+        return roundCriteriaMapper.toResponse(roundCriteria);
 
-                RoundCriteria roundCriteria =
-                        roundCriteriaRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
-                                                        + id));
-
-                return roundCriteriaMapper.toResponse(roundCriteria);
-            }
-
-            case MENTOR -> {
-
-                mentorRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role MENTOR"));
-
-                RoundCriteria roundCriteria =
-                        roundCriteriaRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
-                                                        + id));
-
-                return roundCriteriaMapper.toResponse(roundCriteria);
-            }
-
-            case STUDENT -> {
-
-                studentRepository.findByUser_UserId(currentUser.getUserId())
-                        .orElseThrow(() ->
-                                new NotFoundException(
-                                        "User ID = "
-                                                + currentUser.getUserId()
-                                                + " chưa được liên kết với role STUDENT"));
-
-                RoundCriteria roundCriteria =
-                        roundCriteriaRepository.findById(id)
-                                .orElseThrow(() ->
-                                        new NotFoundException(
-                                                "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
-                                                        + id));
-
-                return roundCriteriaMapper.toResponse(roundCriteria);
-            }
-
-            default -> throw new ForbiddenException(
-                    "Không có quyền truy cập RoundCriteria");
-        }
     }
 
     @Override
@@ -298,6 +227,28 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                                 new NotFoundException(
                                         "Không tìm thấy đợt đánh giá với ID = "
                                                 + request.getRoundId()));
+
+        if (!Boolean.TRUE.equals(round.getIsActive())) {
+
+            throw new BadRequestException(
+                    "AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " hiện không hoạt động");
+        }
+
+        LocalDate now = LocalDate.now();
+
+        if (now.isBefore(round.getStartDate())
+                || now.isAfter(round.getEndDate())) {
+
+            throw new BadRequestException(
+                    "Hiện tại không nằm trong thời gian đánh giá của AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " | startDate = "
+                            + round.getStartDate()
+                            + " | endDate = "
+                            + round.getEndDate());
+        }
 
         EvaluationCriteria criterion =
                 evaluationCriteriaRepository.findById(
@@ -319,6 +270,25 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                             + request.getRoundId());
         }
 
+        BigDecimal currentTotalWeight =
+                roundCriteriaRepository
+                        .sumWeightByRound_RoundId(
+                                request.getRoundId());
+
+        if (currentTotalWeight == null) {
+            currentTotalWeight = BigDecimal.ZERO;
+        }
+
+        BigDecimal newTotalWeight =
+                currentTotalWeight.add(
+                        request.getWeight());
+
+        if (newTotalWeight.compareTo(BigDecimal.ONE) > 0) {
+
+            throw new BadRequestException(
+                    "Tổng weight của đợt đánh giá không được lớn hơn 1");
+        }
+
         RoundCriteria roundCriteria = roundCriteriaMapper.toEntity(request);
 
         roundCriteria.setRound(round);
@@ -326,8 +296,6 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
         roundCriteria.setCriterion(criterion);
 
         roundCriteria.setCreatedAt(LocalDateTime.now());
-
-        roundCriteria.setUpdatedAt(LocalDateTime.now());
 
         roundCriteriaRepository.save(roundCriteria);
 
@@ -345,6 +313,38 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                                 new NotFoundException(
                                         "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
                                                 + id));
+
+        boolean hasResult =
+                assessmentResultRepository.existsByRound_RoundIdAndCriterion_CriterionId(
+                        roundCriteria.getRound().getRoundId(),
+                        roundCriteria.getCriterion().getCriterionId());
+
+        if (hasResult) {
+            throw new ConflictException(
+                    "Không thể cập nhật weight vì đã có kết quả đánh giá");
+        }
+
+
+        BigDecimal currentTotalWeight =
+                roundCriteriaRepository
+                        .sumWeightByRound_RoundId(
+                                roundCriteria.getRound().getRoundId());
+
+        if (currentTotalWeight == null) {
+            currentTotalWeight = BigDecimal.ZERO;
+        }
+
+        BigDecimal newTotalWeight =
+                currentTotalWeight
+                        .subtract(roundCriteria.getWeight())
+                        .add(request.getWeight());
+
+        if (newTotalWeight.compareTo(BigDecimal.ONE) > 0) {
+
+            throw new BadRequestException(
+                    "Tổng weight của đợt đánh giá không được lớn hơn 1");
+        }
+
 
         roundCriteriaMapper.updateEntityFromDto(request, roundCriteria);
 
@@ -365,6 +365,16 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                                 new NotFoundException(
                                         "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
                                                 + id));
+
+        boolean hasResult =
+                assessmentResultRepository.existsByRound_RoundIdAndCriterion_CriterionId(
+                        roundCriteria.getRound().getRoundId(),
+                        roundCriteria.getCriterion().getCriterionId());
+
+        if (hasResult) {
+            throw new ConflictException(
+                    "Không thể xóa tiêu chí trong đợt đánh giá vì đã có kết quả đánh giá");
+        }
 
         RoundCriteriaResponse response =
                 roundCriteriaMapper.toResponse(roundCriteria);

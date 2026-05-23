@@ -33,8 +33,8 @@ public class RoundCriteria {
     @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal weight;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = null;
 
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = null;
 
 }

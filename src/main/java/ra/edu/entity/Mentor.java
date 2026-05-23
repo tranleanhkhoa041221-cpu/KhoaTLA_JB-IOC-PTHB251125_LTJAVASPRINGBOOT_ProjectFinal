@@ -31,9 +31,9 @@ public class Mentor {
     @Column(length = 50)
     private String academicRank;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = null;
 
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = null;
 
     @OneToMany(mappedBy = "mentor")
     private List<InternshipAssignment> internshipAssignments;

@@ -39,9 +39,9 @@ public class Student {
 
     private String address;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = null;
 
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = null;
 
     @OneToMany(mappedBy = "student")
     private List<InternshipAssignment> internshipAssignments;
