@@ -30,6 +30,7 @@ import ra.edu.service.RoundCriteriaService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -245,9 +246,9 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                     "Hiện tại không nằm trong thời gian đánh giá của AssessmentRound ID = "
                             + round.getRoundId()
                             + " | startDate = "
-                            + round.getStartDate()
+                            + round.getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                             + " | endDate = "
-                            + round.getEndDate());
+                            + round.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         }
 
         EvaluationCriteria criterion =
@@ -314,6 +315,30 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                                         "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
                                                 + id));
 
+        AssessmentRound round = roundCriteria.getRound();
+
+        if (!Boolean.TRUE.equals(round.getIsActive())) {
+
+            throw new BadRequestException(
+                    "AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " hiện không hoạt động");
+        }
+
+        LocalDate now = LocalDate.now();
+
+        if (now.isBefore(round.getStartDate())
+                || now.isAfter(round.getEndDate())) {
+
+            throw new BadRequestException(
+                    "Hiện tại không nằm trong thời gian đánh giá của AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " | startDate = "
+                            + round.getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                            + " | endDate = "
+                            + round.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        }
+
         boolean hasResult =
                 assessmentResultRepository.existsByRound_RoundIdAndCriterion_CriterionId(
                         roundCriteria.getRound().getRoundId(),
@@ -331,18 +356,21 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                                 roundCriteria.getRound().getRoundId());
 
         if (currentTotalWeight == null) {
+
             currentTotalWeight = BigDecimal.ZERO;
         }
+        if (request.getWeight() != null) {
 
-        BigDecimal newTotalWeight =
-                currentTotalWeight
-                        .subtract(roundCriteria.getWeight())
-                        .add(request.getWeight());
+            BigDecimal newTotalWeight =
+                    currentTotalWeight
+                            .subtract(roundCriteria.getWeight())
+                            .add(request.getWeight());
 
-        if (newTotalWeight.compareTo(BigDecimal.ONE) > 0) {
+            if (newTotalWeight.compareTo(BigDecimal.ONE) > 0) {
 
-            throw new BadRequestException(
-                    "Tổng weight của đợt đánh giá không được lớn hơn 1");
+                throw new BadRequestException(
+                        "Tổng weight của đợt đánh giá không được lớn hơn 1");
+            }
         }
 
 
@@ -365,6 +393,30 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                                 new NotFoundException(
                                         "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
                                                 + id));
+
+        AssessmentRound round = roundCriteria.getRound();
+
+        if (!Boolean.TRUE.equals(round.getIsActive())) {
+
+            throw new BadRequestException(
+                    "AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " hiện không hoạt động");
+        }
+
+        LocalDate now = LocalDate.now();
+
+        if (now.isBefore(round.getStartDate())
+                || now.isAfter(round.getEndDate())) {
+
+            throw new BadRequestException(
+                    "Hiện tại không nằm trong thời gian đánh giá của AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " | startDate = "
+                            + round.getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                            + " | endDate = "
+                            + round.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        }
 
         boolean hasResult =
                 assessmentResultRepository.existsByRound_RoundIdAndCriterion_CriterionId(

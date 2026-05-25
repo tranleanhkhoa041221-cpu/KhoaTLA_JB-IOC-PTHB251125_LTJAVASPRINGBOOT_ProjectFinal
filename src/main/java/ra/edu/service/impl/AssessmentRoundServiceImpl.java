@@ -29,6 +29,7 @@ import ra.edu.service.AssessmentRoundService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -230,9 +231,9 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                     "Hiện tại không nằm trong thời gian của InternshipPhase ID = "
                             + phase.getPhaseId()
                             + " | startDate = "
-                            + phase.getStartDate()
+                            + phase.getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                             + " | endDate = "
-                            + phase.getEndDate());
+                            + phase.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         }
 
         if (assessmentRoundRepository
@@ -253,6 +254,13 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
             throw new BadRequestException(
                     "Ngày bắt đầu đợt đánh giá không được sau ngày kết thúc đợt đánh giá");
         }
+
+        if (request.getStartDate().isBefore(phase.getStartDate()) || request.getEndDate().isAfter(phase.getEndDate())) {
+            throw new BadRequestException(
+                    "Thời gian đợt đánh giá phải nằm trong khoảng thời gian của InternshipPhase ("
+                            + phase.getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " đến " + phase.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")");
+        }
+
 
         AssessmentRound round =
                 assessmentRoundMapper.toEntity(request);
@@ -280,6 +288,13 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                                 new NotFoundException(
                                         "Không tìm thấy đợt đánh giá với ID = "
                                                 + id));
+
+        LocalDate now = LocalDate.now();
+        if (now.isBefore(round.getPhase().getStartDate()) || now.isAfter(round.getPhase().getEndDate())) {
+            throw new BadRequestException(
+                    "Không thể cập nhật AssessmentRound. Hiện tại không nằm trong thời gian của InternshipPhase ("
+                            + round.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " đến " + round.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")");
+        }
 
         boolean used =
                 (round.getRoundCriteria() != null
@@ -360,6 +375,12 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                     "Ngày bắt đầu đợt đánh giá không được sau ngày kết thúc đợt đánh giá");
         }
 
+        if (newStartDate.isBefore(round.getPhase().getStartDate()) || newEndDate.isAfter(round.getPhase().getEndDate())) {
+            throw new BadRequestException(
+                    "Thời gian đợt đánh giá sau khi cập nhật phải nằm trong khoảng thời gian của InternshipPhase ("
+                            + round.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " đến " + round.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")");
+        }
+
         assessmentRoundMapper
                 .updateEntityFromDto(request, round);
 
@@ -396,6 +417,13 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                                 new NotFoundException(
                                         "Không tìm thấy đợt đánh giá với ID = "
                                                 + id));
+
+        LocalDate now = LocalDate.now();
+        if (now.isBefore(round.getPhase().getStartDate()) || now.isAfter(round.getPhase().getEndDate())) {
+            throw new BadRequestException(
+                    "Không thể xóa AssessmentRound. Hiện tại không nằm trong thời gian của InternshipPhase ("
+                            + round.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " đến " + round.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")");
+        }
 
         boolean hasRoundCriteria =
                 round.getRoundCriteria() != null

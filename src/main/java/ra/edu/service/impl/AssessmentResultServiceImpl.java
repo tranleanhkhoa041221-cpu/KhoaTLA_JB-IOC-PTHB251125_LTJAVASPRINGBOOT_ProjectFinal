@@ -26,6 +26,7 @@ import ra.edu.service.AssessmentResultService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -1103,9 +1104,9 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                     "Hiện tại không nằm trong thời gian đánh giá của AssessmentRound ID = "
                             + round.getRoundId()
                             + " | startDate = "
-                            + round.getStartDate()
+                            + round.getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                             + " | endDate = "
-                            + round.getEndDate());
+                            + round.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         }
 
         if (!assignment.getPhase().getPhaseId()
@@ -1229,7 +1230,13 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                 || now.isAfter(round.getEndDate())) {
 
             throw new BadRequestException(
-                    "AssessmentRound hiện không còn trong thời gian đánh giá");
+                    "Hiện tại không nằm trong thời gian đánh giá của AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " | startDate = "
+                            + round.getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                            + " | endDate = "
+                            + round.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+
         }
 
         if (request.getScore() != null
@@ -1296,6 +1303,30 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                                 new NotFoundException(
                                         "Không tìm thấy AssessmentResult với ID = "
                                                 + id));
+
+        AssessmentRound round = result.getRound();
+
+        if (!Boolean.TRUE.equals(round.getIsActive())) {
+
+            throw new BadRequestException(
+                    "AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " hiện không hoạt động");
+        }
+
+        LocalDate now = LocalDate.now();
+
+        if (now.isBefore(round.getStartDate())
+                || now.isAfter(round.getEndDate())) {
+
+            throw new BadRequestException(
+                    "Hiện tại không nằm trong thời gian đánh giá của AssessmentRound ID = "
+                            + round.getRoundId()
+                            + " | startDate = "
+                            + round.getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                            + " | endDate = "
+                            + round.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        }
 
         InternshipAssignmentsStatus status =
                 result.getAssignment().getStatus();

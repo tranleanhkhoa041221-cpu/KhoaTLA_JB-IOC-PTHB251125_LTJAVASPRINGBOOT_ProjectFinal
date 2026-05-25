@@ -27,6 +27,7 @@ import ra.edu.service.InternshipAssignmentService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -716,9 +717,9 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                     "Hiện tại không nằm trong thời gian của InternshipPhase ID = "
                             + phase.getPhaseId()
                             + " | startDate = "
-                            + phase.getStartDate()
+                            + phase.getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                             + " | endDate = "
-                            + phase.getEndDate());
+                            + phase.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         }
 
         if (internshipAssignmentRepository
@@ -762,6 +763,17 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                         .orElseThrow(() ->
                                 new NotFoundException(
                                         "Không tìm thấy InternshipAssignment với ID = " + id));
+
+        LocalDate now = LocalDate.now();
+        if (now.isBefore(assignment.getPhase().getStartDate()) || now.isAfter(assignment.getPhase().getEndDate())) {
+            throw new BadRequestException("Không thể cập nhật. " +
+                    "Hiện tại không nằm trong thời gian của InternshipPhase ID = "
+                            + assignment.getPhase().getPhaseId()
+                            + " | startDate = "
+                            + assignment.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                            + " | endDate = "
+                            + assignment.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        }
 
         if (assignment.getStatus() != InternshipAssignmentsStatus.PENDING) {
 
@@ -821,6 +833,46 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                                 new NotFoundException(
                                         "Không tìm thấy InternshipAssignment với ID = " + id));
 
+        LocalDate now = LocalDate.now();
+        if (now.isBefore(assignment.getPhase().getStartDate()) || now.isAfter(assignment.getPhase().getEndDate())) {
+            throw new BadRequestException("Không thể cập nhật Status. " +
+                    "Hiện tại không nằm trong thời gian của InternshipPhase ID = "
+                    + assignment.getPhase().getPhaseId()
+                    + " | startDate = "
+                    + assignment.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    + " | endDate = "
+                    + assignment.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        }
+
+        InternshipAssignmentsStatus oldStatus = assignment.getStatus();
+        InternshipAssignmentsStatus newStatus = request.getStatus();
+
+        if (oldStatus == InternshipAssignmentsStatus.COMPLETED || oldStatus == InternshipAssignmentsStatus.CANCELLED) {
+            throw new BadRequestException("Phân công thực tập này đã kết thúc với trạng thái " + oldStatus + ", không thể chỉnh sửa nữa!");
+        }
+
+        if (oldStatus == InternshipAssignmentsStatus.PENDING) {
+            if (newStatus != InternshipAssignmentsStatus.IN_PROGRESS && newStatus != InternshipAssignmentsStatus.CANCELLED) {
+                throw new BadRequestException("Từ trạng thái PENDING chỉ được chuyển sang IN_PROGRESS hoặc CANCELLED!");
+            }
+        }
+
+        if (oldStatus == InternshipAssignmentsStatus.IN_PROGRESS) {
+            if (newStatus != InternshipAssignmentsStatus.COMPLETED && newStatus != InternshipAssignmentsStatus.CANCELLED) {
+                throw new BadRequestException("Từ trạng thái IN_PROGRESS chỉ được chuyển sang COMPLETED hoặc CANCELLED!");
+            }
+        }
+
+        if (newStatus == InternshipAssignmentsStatus.COMPLETED) {
+            boolean hasResult = assignment.getAssessmentResults() != null
+                    && !assignment.getAssessmentResults().isEmpty();
+
+            if (!hasResult) {
+                throw new BadRequestException(
+                        "Không thể sửa status thành COMPLETED. Phân công thực tập ID = " + id + " chưa có kết quả đánh giá!");
+            }
+        }
+
 //        assignment.setStatus(request.getStatus());
         internshipAssignmentMapper.updateStatusFromDto(request, assignment);
 
@@ -839,6 +891,17 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                         .orElseThrow(() ->
                                 new NotFoundException(
                                         "Không tìm thấy InternshipAssignment với ID = " + id));
+
+        LocalDate now = LocalDate.now();
+        if (now.isBefore(assignment.getPhase().getStartDate()) || now.isAfter(assignment.getPhase().getEndDate())) {
+            throw new BadRequestException("Không thể xóa. " +
+                    "Hiện tại không nằm trong thời gian của InternshipPhase ID = "
+                    + assignment.getPhase().getPhaseId()
+                    + " | startDate = "
+                    + assignment.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    + " | endDate = "
+                    + assignment.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        }
 
         if (assignment.getStatus() != InternshipAssignmentsStatus.PENDING) {
 
