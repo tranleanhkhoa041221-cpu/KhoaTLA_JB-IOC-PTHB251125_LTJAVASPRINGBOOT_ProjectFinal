@@ -310,6 +310,7 @@ public class UserServiceImpl implements UserService {
                     "Không được phép thay đổi trạng thái của ADMIN");
         }
 
+
         boolean hasStudent =
                 studentRepository.existsByUser_UserId(user.getUserId());
 
@@ -352,8 +353,15 @@ public class UserServiceImpl implements UserService {
                             + " vì đã liên kết với AssessmentResult");
         }
 
-        user.setIsActive(
-                Boolean.parseBoolean(request.getIsActive()));
+        boolean oldStatus = user.getIsActive();
+        boolean newStatus = Boolean.parseBoolean(request.getIsActive());
+
+        if (oldStatus == newStatus) {
+            throw new BadRequestException(
+                    "Tài khoản này đã ở trạng thái " + (oldStatus ? "ĐÃ KÍCH HOẠT" : "BỊ KHÓA") + " rồi!");
+        }
+
+        user.setIsActive(newStatus);
 
 //        user.setIsActive(request.getIsActive());
 
@@ -425,7 +433,15 @@ public class UserServiceImpl implements UserService {
                             + " vì đã liên kết với AssessmentResult");
         }
 
-        user.setRole(request.getRole());
+        UserRole oldRole = user.getRole();
+        UserRole newRole = request.getRole();
+
+        if (oldRole == newRole) {
+            throw new BadRequestException(
+                    "Tài khoản này đã có quyền (role) là " + oldRole + " rồi!");
+        }
+
+        user.setRole(newRole);
 
 //        user.setRole(UserRole.valueOf(request.getRole()));
 

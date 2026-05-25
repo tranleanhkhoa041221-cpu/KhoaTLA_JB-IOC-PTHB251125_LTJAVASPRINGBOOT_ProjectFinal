@@ -397,6 +397,10 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                         "Đợt đánh giá đã được sử dụng, không thể đổi trạng thái hoạt động của đợt đánh giá");
             }
 
+            if (newActive == round.getIsActive()) {
+                throw new BadRequestException("Đợt đánh giá này đã ở trạng thái " + (round.getIsActive() ? "ĐÃ KÍCH HOẠT" : "BỊ KHÓA") + " rồi!");
+            }
+
             round.setIsActive(newActive);
         }
 

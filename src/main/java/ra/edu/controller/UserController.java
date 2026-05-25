@@ -54,7 +54,7 @@ public class UserController {
                         userService.updateUser(id, request)));
     }
 
-    @PutMapping("/{id}/status")
+    @PatchMapping("/{id}/status")
     public ResponseEntity<ApiResponse<?>> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UserUpdateStatusRequest request) {
@@ -64,7 +64,7 @@ public class UserController {
                         userService.updateUserStatus(id, request)));
     }
 
-    @PutMapping("/{id}/role")
+    @PatchMapping("/{id}/role")
     public ResponseEntity<ApiResponse<?>> updateRole(
             @PathVariable Long id,
             @Valid @RequestBody UserUpdateRoleRequest request) {

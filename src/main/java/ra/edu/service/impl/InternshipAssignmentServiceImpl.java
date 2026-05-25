@@ -848,8 +848,7 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
         InternshipAssignmentsStatus newStatus = request.getStatus();
 
         if (oldStatus == newStatus) {
-            return internshipAssignmentMapper.toResponse(assignment);
-        }
+            throw new BadRequestException("Phân công thực tập này đã ở trạng thái " + oldStatus + " rồi!");        }
 
         if (oldStatus == InternshipAssignmentsStatus.COMPLETED || oldStatus == InternshipAssignmentsStatus.CANCELLED) {
             throw new BadRequestException("Phân công thực tập này đã kết thúc với trạng thái " + oldStatus + ", không thể chỉnh sửa nữa!");
