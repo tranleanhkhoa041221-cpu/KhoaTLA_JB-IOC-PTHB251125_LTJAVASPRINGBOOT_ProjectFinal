@@ -49,6 +49,8 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
 
     private final StudentRepository studentRepository;
 
+    private final InternshipAssignmentRepository internshipAssignmentRepository;
+
     private User getCurrentUser() {
 
         Authentication authentication =
@@ -409,12 +411,12 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
 
         User currentUser = getCurrentUser();
 
-        if (!assessmentRoundRepository.existsById(roundId)) {
-
-            throw new NotFoundException(
-                    "Không tìm thấy đợt đánh giá với ID = "
-                            + roundId);
-        }
+        AssessmentRound round =
+                assessmentRoundRepository.findById(roundId)
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "Không tìm thấy đợt đánh giá với ID = "
+                                                + roundId));
 
         List<RoundCriteria> roundCriteriaList;
 
@@ -437,6 +439,19 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                                                 + currentUser.getUserId()
                                                 + " chưa được liên kết với role MENTOR"));
 
+                boolean hasAccess =
+                        internshipAssignmentRepository
+                                .existsByPhase_PhaseIdAndMentor_MentorId(
+                                        round.getPhase().getPhaseId(),
+                                        mentor.getMentorId());
+
+                if (!hasAccess) {
+
+                    throw new NotFoundException(
+                            "Không tìm thấy đợt đánh giá với ID = "
+                                    + roundId);
+                }
+
                 roundCriteriaList =
                         roundCriteriaRepository
                                 .findAllByRound_RoundIdAndRound_Phase_InternshipAssignments_Mentor_MentorId(
@@ -456,6 +471,20 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                                                 + currentUser.getUserId()
                                                 + " chưa được liên kết với role STUDENT"));
 
+
+                boolean hasAccess =
+                        internshipAssignmentRepository
+                                .existsByPhase_PhaseIdAndStudent_StudentId(
+                                        round.getPhase().getPhaseId(),
+                                        student.getStudentId());
+
+                if (!hasAccess) {
+
+                    throw new NotFoundException(
+                            "Không tìm thấy đợt đánh giá với ID = "
+                                    + roundId);
+                }
+
                 roundCriteriaList =
                         roundCriteriaRepository
                                 .findAllByRound_RoundIdAndRound_Phase_InternshipAssignments_Student_StudentId(
@@ -467,6 +496,13 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
 
             default -> throw new BadRequestException(
                     "Role không hợp lệ");
+        }
+
+        if (roundCriteriaList.isEmpty()) {
+
+            throw new NotFoundException(
+                    "Không tìm thấy đợt đánh giá với ID = "
+                            + roundId);
         }
 
         return roundCriteriaList.stream()
