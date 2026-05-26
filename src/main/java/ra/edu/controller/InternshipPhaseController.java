@@ -1,9 +1,7 @@
 package ra.edu.controller;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,9 +9,9 @@ import ra.edu.dto.request.InternshipPhaseCreateRequest;
 import ra.edu.dto.request.InternshipPhaseFilterRequest;
 import ra.edu.dto.request.InternshipPhaseUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
+import ra.edu.dto.response.InternshipPhaseResponse;
 import ra.edu.service.InternshipPhaseService;
 
-import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/internship-phases")
@@ -23,7 +21,7 @@ public class InternshipPhaseController {
     private final InternshipPhaseService internshipPhaseService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<?>> getAll(
+    public ResponseEntity<?> getAll(
             @Valid @ModelAttribute InternshipPhaseFilterRequest filter) {
 
         return ResponseEntity.ok(
@@ -32,7 +30,7 @@ public class InternshipPhaseController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> getById(@PathVariable Long id) {
+    public ResponseEntity<?> getById(@PathVariable Long id) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy thông tin chi tiết giai đoạn thực tập thành công",
@@ -40,7 +38,7 @@ public class InternshipPhaseController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<?>> create(
+    public ResponseEntity<?> create(
             @Valid @RequestBody InternshipPhaseCreateRequest request) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -50,19 +48,27 @@ public class InternshipPhaseController {
 
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> update(
+    public ResponseEntity<?> update(
             @PathVariable Long id,
             @Valid @RequestBody InternshipPhaseUpdateRequest request) {
 
+        InternshipPhaseResponse response = internshipPhaseService.updatePhase(id, request);
+
+        if (response == null) {
+
+            return ResponseEntity.noContent().build();
+        }
+
         return ResponseEntity.ok(
-                ApiResponse.success("Cập nhật giai đoạn thực tập thành công",
-                        internshipPhaseService.updatePhase(id, request)));
+                ApiResponse.success("Cập nhật giai đoạn thực tập thành công", response));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> delete(@PathVariable Long id) {
+    public ResponseEntity<?> delete(@PathVariable Long id) {
 
-        return ResponseEntity.ok(
-                ApiResponse.success("Xóa giai đoạn thực tập thành công", internshipPhaseService.deletePhase(id)));
+        internshipPhaseService.deletePhase(id);
+
+        return ResponseEntity.noContent().build();
+
     }
 }

@@ -27,6 +27,7 @@ import ra.edu.service.InternshipPhaseService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -175,37 +176,30 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
                                 new NotFoundException(
                                         "Không tìm thấy Phase với ID = " + id));
 
-        boolean used =
-                (phase.getInternshipAssignments() != null
-                        && !phase.getInternshipAssignments().isEmpty())
-                        || (phase.getAssessmentRounds() != null
-                        && !phase.getAssessmentRounds().isEmpty());
+        List<String> violations = new ArrayList<>();
+        if (phase.getInternshipAssignments() != null && !phase.getInternshipAssignments().isEmpty()) {
+            violations.add("InternshipAssignment");
+        }
+        if (phase.getAssessmentRounds() != null && !phase.getAssessmentRounds().isEmpty()) {
+            violations.add("AssessmentRound");
+        }
+
+        boolean isUsed = !violations.isEmpty();
+        String linkedEntities = String.join(", ", violations);
 
         if (request.getPhaseName() != null) {
-
-            request.setPhaseName(
-                    request.getPhaseName().trim());
+            request.setPhaseName(request.getPhaseName().trim());
 
             if (request.getPhaseName().isBlank()) {
-
-                throw new BadRequestException(
-                        "Tên giai đoạn thực tập không được để trống");
+                throw new BadRequestException("Tên giai đoạn thực tập không được để trống");
             }
 
-
             if (!request.getPhaseName().equalsIgnoreCase(phase.getPhaseName())) {
-
-                if (used) {
-
-                    throw new ConflictException(
-                            "Phase đã được sử dụng, không thể thay đổi tên giai đoạn thực tập");
+                if (isUsed) {
+                    throw new ConflictException("Không thể thay đổi tên giai đoạn vì Phase đã liên kết với: " + linkedEntities);
                 }
-
-                if (internshipPhaseRepository.existsByPhaseNameIgnoreCase(
-                        request.getPhaseName())) {
-
-                    throw new ConflictException(
-                            "Tên giai đoạn thực tập đã tồn tại");
+                if (internshipPhaseRepository.existsByPhaseNameIgnoreCase(request.getPhaseName())) {
+                    throw new ConflictException("Tên giai đoạn thực tập đã tồn tại");
                 }
             }
         }
@@ -214,32 +208,38 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
             request.setDescription(request.getDescription().trim());
         }
 
-        if (request.getStartDate() != null && !request.getStartDate()
-                .equals(phase.getStartDate()) && used) {
-
-            throw new ConflictException(
-                    "Phase đã được sử dụng, không thể thay đổi ngày bắt đầu giai đoạn thực tập");
+        if (request.getStartDate() != null && !request.getStartDate().equals(phase.getStartDate()) && isUsed) {
+            throw new ConflictException("Không thể thay đổi StartDate vì Phase đã liên kết với: " + linkedEntities);
         }
 
-        if (request.getEndDate() != null && !request.getEndDate()
-                .equals(phase.getEndDate()) && used) {
-
-            throw new ConflictException(
-                    "Phase đã được sử dụng, không thể thay đổi ngày kết thúc giai đoạn thực tập");
+        if (request.getEndDate() != null && !request.getEndDate().equals(phase.getEndDate()) && isUsed) {
+            throw new ConflictException("Không thể thay đổi EndDate vì Phase đã liên kết với: " + linkedEntities);
         }
 
-        LocalDate newStartDate = request.getStartDate() != null
-                ? request.getStartDate()
-                : phase.getStartDate();
-
-        LocalDate newEndDate = request.getEndDate() != null
-                ? request.getEndDate()
-                : phase.getEndDate();
+        LocalDate newStartDate = request.getStartDate() != null ? request.getStartDate() : phase.getStartDate();
+        LocalDate newEndDate = request.getEndDate() != null ? request.getEndDate() : phase.getEndDate();
 
         if (newStartDate.isAfter(newEndDate)) {
+            throw new BadRequestException("Ngày bắt đầu giai đoạn thực tập không được sau ngày kết thúc giai đoạn thực tập");
+        }
 
-            throw new BadRequestException(
-                    "Ngày bắt đầu giai đoạn thực tập không được sau ngày kết thúc giai đoạn thực tập");
+        boolean hasChanges = false;
+
+        if (request.getPhaseName() != null && !request.getPhaseName().equalsIgnoreCase(phase.getPhaseName())) {
+            hasChanges = true;
+        }
+        if (request.getStartDate() != null && !request.getStartDate().equals(phase.getStartDate())) {
+            hasChanges = true;
+        }
+        if (request.getEndDate() != null && !request.getEndDate().equals(phase.getEndDate())) {
+            hasChanges = true;
+        }
+        if (request.getDescription() != null && !request.getDescription().equalsIgnoreCase(phase.getDescription())) {
+            hasChanges = true;
+        }
+
+        if (!hasChanges) {
+            return null;
         }
 
         internshipPhaseMapper.updateEntityFromDto(request, phase);
@@ -252,7 +252,7 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
     }
 
     @Override
-    public InternshipPhaseResponse deletePhase(Long id) {
+    public void deletePhase(Long id) {
 
         InternshipPhase phase =
                 internshipPhaseRepository.findById(id)
@@ -260,42 +260,22 @@ public class InternshipPhaseServiceImpl implements InternshipPhaseService {
                                 new NotFoundException(
                                         "Không tìm thấy Phase với ID = " + id));
 
-        boolean hasAssignments = phase.getInternshipAssignments() != null &&
-                !phase.getInternshipAssignments().isEmpty();
+        List<String> violations = new ArrayList<>();
 
-        boolean hasRounds = phase.getAssessmentRounds() != null &&
-                !phase.getAssessmentRounds().isEmpty();
-
-        if (hasAssignments && hasRounds) {
-
-            throw new ConflictException(
-                    "Không thể xóa Phase ID = "
-                            + id
-                            + " vì đã liên kết với InternshipAssignment và AssessmentRound");
+        if (phase.getInternshipAssignments() != null && !phase.getInternshipAssignments().isEmpty()) {
+            violations.add("InternshipAssignment");
+        }
+        if (phase.getAssessmentRounds() != null && !phase.getAssessmentRounds().isEmpty()) {
+            violations.add("AssessmentRound");
         }
 
-        if (hasAssignments) {
-
-            throw new ConflictException(
-                    "Không thể xóa Phase ID = "
-                            + id
-                            + " vì đã liên kết với InternshipAssignment");
+        if (!violations.isEmpty()) {
+            throw new ConflictException("Không thể xóa Phase ID = " + id
+                    + " vì đã liên kết với: " + String.join(", ", violations));
         }
-
-        if (hasRounds) {
-
-            throw new ConflictException(
-                    "Không thể xóa Phase ID = "
-                            + id
-                            + " vì đã liên kết với AssessmentRound");
-        }
-
-        InternshipPhaseResponse response =
-                internshipPhaseMapper.toResponse(phase);
 
         internshipPhaseRepository.delete(phase);
 
-        return response;
     }
 
 

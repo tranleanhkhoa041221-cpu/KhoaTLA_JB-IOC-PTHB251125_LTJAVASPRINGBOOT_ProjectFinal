@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.*;
 import ra.edu.dto.request.AssessmentRoundCreateRequest;
 import ra.edu.dto.request.AssessmentRoundFilterRequest;
 import ra.edu.dto.request.AssessmentRoundUpdateRequest;
+import ra.edu.dto.request.AssessmentRoundUpdateStatusRequest;
 import ra.edu.dto.response.ApiResponse;
+import ra.edu.dto.response.AssessmentRoundResponse;
 import ra.edu.service.AssessmentRoundService;
 
 
@@ -20,7 +22,7 @@ public class AssessmentRoundController {
     private final AssessmentRoundService assessmentRoundService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<?>> getAll(
+    public ResponseEntity<?> getAll(
             @Valid @ModelAttribute AssessmentRoundFilterRequest filter) {
 
         return ResponseEntity.ok(
@@ -30,7 +32,7 @@ public class AssessmentRoundController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> getById(
+    public ResponseEntity<?> getById(
             @PathVariable Long id) {
 
         return ResponseEntity.ok(
@@ -40,7 +42,7 @@ public class AssessmentRoundController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<?>> create(
+    public ResponseEntity<?> create(
             @Valid @RequestBody AssessmentRoundCreateRequest request) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -51,23 +53,44 @@ public class AssessmentRoundController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> update(
+    public ResponseEntity<?> update(
             @PathVariable Long id,
             @Valid @RequestBody AssessmentRoundUpdateRequest request) {
 
+        AssessmentRoundResponse response = assessmentRoundService.updateAssessmentRound(id, request);
+
+        if (response == null) {
+            return ResponseEntity.noContent().build();
+        }
+
         return ResponseEntity.ok(
                 ApiResponse.success(
-                        "Cập nhật đợt đánh giá thành công",
-                        assessmentRoundService.updateAssessmentRound(id, request)));
+                        "Cập nhật đợt đánh giá thành công", response));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<?> updateStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody AssessmentRoundUpdateStatusRequest request) {
+
+        AssessmentRoundResponse response = assessmentRoundService.updateAssessmentRoundStatus(id, request);
+
+        if (response == null) {
+            return ResponseEntity.noContent().build();
+        }
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Cập nhật trạng thái đợt đánh giá thành công",
+                        response));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> delete(
+    public ResponseEntity<?> delete(
             @PathVariable Long id) {
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Xóa đợt đánh giá thành công",
-                        assessmentRoundService.deleteAssessmentRound(id)));
+        assessmentRoundService.deleteAssessmentRound(id);
+
+        return ResponseEntity.noContent().build();
     }
 }

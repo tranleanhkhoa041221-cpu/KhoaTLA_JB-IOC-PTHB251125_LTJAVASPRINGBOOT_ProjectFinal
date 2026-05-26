@@ -446,6 +446,26 @@ public class StudentServiceImpl implements StudentService {
             request.setAddress(request.getAddress().trim());
         }
 
+        boolean hasChanges = false;
+
+        if (request.getMajor() != null && !request.getMajor().equalsIgnoreCase(student.getMajor())) {
+            hasChanges = true;
+        }
+        if (request.getClassName() != null && !request.getClassName().equalsIgnoreCase(student.getClassName())) {
+            hasChanges = true;
+        }
+        if (request.getAddress() != null && !request.getAddress().equalsIgnoreCase(student.getAddress())) {
+            hasChanges = true;
+        }
+
+        if (request.getDateOfBirth() != null && !request.getDateOfBirth().equals(student.getDateOfBirth())) {
+            hasChanges = true;
+        }
+
+        if (!hasChanges) {
+            return null;
+        }
+
         studentMapper.updateEntityFromDto(request, student);
 
         student.setUpdatedAt(LocalDateTime.now());

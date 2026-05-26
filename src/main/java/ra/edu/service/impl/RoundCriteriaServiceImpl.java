@@ -15,12 +15,10 @@ import ra.edu.dto.request.RoundCriteriaFilterRequest;
 import ra.edu.dto.request.RoundCriteriaUpdateRequest;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.dto.response.RoundCriteriaResponse;
-import ra.edu.entity.AssessmentRound;
-import ra.edu.entity.EvaluationCriteria;
-import ra.edu.entity.RoundCriteria;
-import ra.edu.entity.User;
+import ra.edu.entity.*;
 import ra.edu.exception.BadRequestException;
 import ra.edu.exception.ConflictException;
+import ra.edu.exception.ForbiddenException;
 import ra.edu.exception.NotFoundException;
 import ra.edu.helper.AccessValidator;
 import ra.edu.mapper.RoundCriteriaMapper;
@@ -47,7 +45,9 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
 
     private final AssessmentResultRepository assessmentResultRepository;
 
-    private final AccessValidator accessValidator;
+    private final MentorRepository mentorRepository;
+
+    private final StudentRepository studentRepository;
 
     private User getCurrentUser() {
 
@@ -60,11 +60,8 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
         return principal.getUser();
     }
 
-    @Override
-    public PaginationResponse<RoundCriteriaResponse> getAllRoundCriteria(
+    private void validateFilter(
             RoundCriteriaFilterRequest request) {
-
-        accessValidator.validateAccess(getCurrentUser());
 
         if (request.getMinWeight() != null
                 && request.getMaxWeight() != null
@@ -76,8 +73,8 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
         }
 
         if (request.getRoundId() != null
-                && !assessmentRoundRepository
-                .existsById(request.getRoundId())) {
+                && !assessmentRoundRepository.existsById(
+                request.getRoundId())) {
 
             throw new NotFoundException(
                     "Không tìm thấy đợt đánh giá với ID = "
@@ -85,13 +82,275 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
         }
 
         if (request.getCriterionId() != null
-                && !evaluationCriteriaRepository
-                .existsById(request.getCriterionId())) {
+                && !evaluationCriteriaRepository.existsById(
+                request.getCriterionId())) {
 
             throw new NotFoundException(
                     "Không tìm thấy tiêu chí đánh giá với ID = "
                             + request.getCriterionId());
         }
+    }
+
+    private Page<RoundCriteria> getAllForAdmin(
+            RoundCriteriaFilterRequest request,
+            Pageable pageable) {
+
+        if (request.getRoundId() != null
+                && request.getCriterionId() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByRound_RoundIdAndCriterion_CriterionId(
+                            request.getRoundId(),
+                            request.getCriterionId(),
+                            pageable);
+        } else if (request.getRoundId() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByRound_RoundId(
+                            request.getRoundId(),
+                            pageable);
+        } else if (request.getCriterionId() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByCriterion_CriterionId(
+                            request.getCriterionId(),
+                            pageable);
+        } else if (request.getRoundName() != null
+                && !request.getRoundName().isBlank()) {
+
+            return roundCriteriaRepository
+                    .findAllByRound_RoundNameContainingIgnoreCase(
+                            request.getRoundName(),
+                            pageable);
+        } else if (request.getCriterionName() != null
+                && !request.getCriterionName().isBlank()) {
+
+            return roundCriteriaRepository
+                    .findAllByCriterion_CriterionNameContainingIgnoreCase(
+                            request.getCriterionName(),
+                            pageable);
+        } else if (request.getWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeight(
+                            request.getWeight(),
+                            pageable);
+        } else if (request.getMinWeight() != null
+                && request.getMaxWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightBetween(
+                            request.getMinWeight(),
+                            request.getMaxWeight(),
+                            pageable);
+        } else if (request.getMinWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightGreaterThanEqual(
+                            request.getMinWeight(),
+                            pageable);
+        } else if (request.getMaxWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightLessThanEqual(
+                            request.getMaxWeight(),
+                            pageable);
+        }
+
+        return roundCriteriaRepository.findAll(pageable);
+    }
+
+    private Page<RoundCriteria> getAllForMentor(
+            RoundCriteriaFilterRequest request,
+            Pageable pageable,
+            User currentUser) {
+
+        Mentor mentor = mentorRepository
+                .findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = "
+                                        + currentUser.getUserId()
+                                        + " chưa được liên kết với role MENTOR"));
+
+        Long mentorId = mentor.getMentorId();
+
+        if (request.getRoundId() != null
+                && request.getCriterionId() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByRound_RoundIdAndCriterion_CriterionIdAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                            request.getRoundId(),
+                            request.getCriterionId(),
+                            mentorId,
+                            pageable);
+        } else if (request.getRoundId() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByRound_RoundIdAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                            request.getRoundId(),
+                            mentorId,
+                            pageable);
+        } else if (request.getCriterionId() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByCriterion_CriterionIdAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                            request.getCriterionId(),
+                            mentorId,
+                            pageable);
+        } else if (request.getRoundName() != null
+                && !request.getRoundName().isBlank()) {
+
+            return roundCriteriaRepository
+                    .findAllByRound_RoundNameContainingIgnoreCaseAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                            request.getRoundName(),
+                            mentorId,
+                            pageable);
+        } else if (request.getCriterionName() != null
+                && !request.getCriterionName().isBlank()) {
+
+            return roundCriteriaRepository
+                    .findAllByCriterion_CriterionNameContainingIgnoreCaseAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                            request.getCriterionName(),
+                            mentorId,
+                            pageable);
+        } else if (request.getWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                            request.getWeight(),
+                            mentorId,
+                            pageable);
+        } else if (request.getMinWeight() != null
+                && request.getMaxWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightBetweenAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                            request.getMinWeight(),
+                            request.getMaxWeight(),
+                            mentorId,
+                            pageable);
+        } else if (request.getMinWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightGreaterThanEqualAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                            request.getMinWeight(),
+                            mentorId,
+                            pageable);
+        } else if (request.getMaxWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightLessThanEqualAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                            request.getMaxWeight(),
+                            mentorId,
+                            pageable);
+        }
+
+        return roundCriteriaRepository
+                .findAllByRound_Phase_InternshipAssignments_Mentor_MentorId(
+                        mentorId,
+                        pageable);
+    }
+
+    private Page<RoundCriteria> getAllForStudent(
+            RoundCriteriaFilterRequest request,
+            Pageable pageable,
+            User currentUser) {
+
+        Student student = studentRepository
+                .findByUser_UserId(currentUser.getUserId())
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User ID = "
+                                        + currentUser.getUserId()
+                                        + " chưa được liên kết với role STUDENT"));
+
+        Long studentId = student.getStudentId();
+
+        if (request.getRoundId() != null
+                && request.getCriterionId() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByRound_RoundIdAndCriterion_CriterionIdAndRound_Phase_InternshipAssignments_Student_StudentId(
+                            request.getRoundId(),
+                            request.getCriterionId(),
+                            studentId,
+                            pageable);
+        } else if (request.getRoundId() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByRound_RoundIdAndRound_Phase_InternshipAssignments_Student_StudentId(
+                            request.getRoundId(),
+                            studentId,
+                            pageable);
+        } else if (request.getCriterionId() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByCriterion_CriterionIdAndRound_Phase_InternshipAssignments_Student_StudentId(
+                            request.getCriterionId(),
+                            studentId,
+                            pageable);
+        } else if (request.getRoundName() != null
+                && !request.getRoundName().isBlank()) {
+
+            return roundCriteriaRepository
+                    .findAllByRound_RoundNameContainingIgnoreCaseAndRound_Phase_InternshipAssignments_Student_StudentId(
+                            request.getRoundName(),
+                            studentId,
+                            pageable);
+        } else if (request.getCriterionName() != null
+                && !request.getCriterionName().isBlank()) {
+
+            return roundCriteriaRepository
+                    .findAllByCriterion_CriterionNameContainingIgnoreCaseAndRound_Phase_InternshipAssignments_Student_StudentId(
+                            request.getCriterionName(),
+                            studentId,
+                            pageable);
+        } else if (request.getWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightAndRound_Phase_InternshipAssignments_Student_StudentId(
+                            request.getWeight(),
+                            studentId,
+                            pageable);
+        } else if (request.getMinWeight() != null
+                && request.getMaxWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightBetweenAndRound_Phase_InternshipAssignments_Student_StudentId(
+                            request.getMinWeight(),
+                            request.getMaxWeight(),
+                            studentId,
+                            pageable);
+        } else if (request.getMinWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightGreaterThanEqualAndRound_Phase_InternshipAssignments_Student_StudentId(
+                            request.getMinWeight(),
+                            studentId,
+                            pageable);
+        } else if (request.getMaxWeight() != null) {
+
+            return roundCriteriaRepository
+                    .findAllByWeightLessThanEqualAndRound_Phase_InternshipAssignments_Student_StudentId(
+                            request.getMaxWeight(),
+                            studentId,
+                            pageable);
+        }
+
+        return roundCriteriaRepository
+                .findAllByRound_Phase_InternshipAssignments_Student_StudentId(
+                        studentId,
+                        pageable);
+    }
+
+    @Override
+    public PaginationResponse<RoundCriteriaResponse> getAllRoundCriteria(
+            RoundCriteriaFilterRequest request) {
+
+        User currentUser = getCurrentUser();
+
+        validateFilter(request);
 
         Pageable pageable = PageRequest.of(
                 request.getPage() - 1,
@@ -100,89 +359,29 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
 
         Page<RoundCriteria> roundCriteriaPage;
 
-        if (request.getRoundId() != null
-                && request.getCriterionId() != null) {
+        switch (currentUser.getRole()) {
 
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByRound_RoundIdAndCriterion_CriterionId(
-                                    request.getRoundId(),
-                                    request.getCriterionId(),
-                                    pageable);
+            case ADMIN -> roundCriteriaPage =
+                    getAllForAdmin(
+                            request,
+                            pageable);
 
-        } else if (request.getRoundId() != null) {
+            case MENTOR -> roundCriteriaPage =
+                    getAllForMentor(
+                            request,
+                            pageable,
+                            currentUser);
 
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByRound_RoundId(
-                                    request.getRoundId(),
-                                    pageable);
+            case STUDENT -> roundCriteriaPage =
+                    getAllForStudent(
+                            request,
+                            pageable,
+                            currentUser);
 
-        } else if (request.getCriterionId() != null) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByCriterion_CriterionId(
-                                    request.getCriterionId(),
-                                    pageable);
-
-        } else if (request.getRoundName() != null
-                && !request.getRoundName().isBlank()) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByRound_RoundNameContainingIgnoreCase(
-                                    request.getRoundName(),
-                                    pageable);
-
-        } else if (request.getCriterionName() != null
-                && !request.getCriterionName().isBlank()) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByCriterion_CriterionNameContainingIgnoreCase(
-                                    request.getCriterionName(),
-                                    pageable);
-
-        } else if (request.getWeight() != null) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByWeight(
-                                    request.getWeight(),
-                                    pageable);
-
-        } else if (request.getMinWeight() != null
-                && request.getMaxWeight() != null) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByWeightBetween(
-                                    request.getMinWeight(),
-                                    request.getMaxWeight(),
-                                    pageable);
-
-        } else if (request.getMinWeight() != null) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByWeightGreaterThanEqual(
-                                    request.getMinWeight(),
-                                    pageable);
-
-        } else if (request.getMaxWeight() != null) {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository
-                            .findAllByWeightLessThanEqual(
-                                    request.getMaxWeight(),
-                                    pageable);
-
-        } else {
-
-            roundCriteriaPage =
-                    roundCriteriaRepository.findAll(pageable);
+            default -> throw new ForbiddenException(
+                    "Không được phép truy cập");
         }
+
 
         List<RoundCriteriaResponse> items =
                 roundCriteriaPage.getContent()
@@ -205,16 +404,146 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
     }
 
     @Override
-    public RoundCriteriaResponse getRoundCriteriaById(Long id) {
+    public List<RoundCriteriaResponse> getCriteriaByRoundId(
+            Long roundId) {
 
-        accessValidator.validateAccess(getCurrentUser());
+        User currentUser = getCurrentUser();
+
+        if (!assessmentRoundRepository.existsById(roundId)) {
+
+            throw new NotFoundException(
+                    "Không tìm thấy đợt đánh giá với ID = "
+                            + roundId);
+        }
+
+        List<RoundCriteria> roundCriteriaList;
+
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> roundCriteriaList =
+                    roundCriteriaRepository
+                            .findAllByRound_RoundId(
+                                    roundId,
+                                    Sort.by("roundCriterionId")
+                                            .ascending());
+
+            case MENTOR -> {
+
+                Mentor mentor = mentorRepository
+                        .findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role MENTOR"));
+
+                roundCriteriaList =
+                        roundCriteriaRepository
+                                .findAllByRound_RoundIdAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                                        roundId,
+                                        mentor.getMentorId(),
+                                        Sort.by("roundCriterionId")
+                                                .ascending());
+            }
+
+            case STUDENT -> {
+
+                Student student = studentRepository
+                        .findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role STUDENT"));
+
+                roundCriteriaList =
+                        roundCriteriaRepository
+                                .findAllByRound_RoundIdAndRound_Phase_InternshipAssignments_Student_StudentId(
+                                        roundId,
+                                        student.getStudentId(),
+                                        Sort.by("roundCriterionId")
+                                                .ascending());
+            }
+
+            default -> throw new BadRequestException(
+                    "Role không hợp lệ");
+        }
+
+        return roundCriteriaList.stream()
+                .map(roundCriteriaMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    public RoundCriteriaResponse getRoundCriteriaById(Long id) {
 
         RoundCriteria roundCriteria =
                 roundCriteriaRepository.findById(id)
                         .orElseThrow(() -> new NotFoundException(
                                 "Không tìm thấy tiêu chí trong đợt đánh giá với ID = " + id));
 
-        return roundCriteriaMapper.toResponse(roundCriteria);
+        User currentUser = getCurrentUser();
+
+        switch (currentUser.getRole()) {
+
+            case ADMIN -> {
+                return roundCriteriaMapper.toResponse(roundCriteria);
+            }
+
+            case MENTOR -> {
+
+                Mentor mentor = mentorRepository
+                        .findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role MENTOR"));
+
+                boolean exists =
+                        roundCriteriaRepository
+                                .existsByRoundCriterionIdAndRound_Phase_InternshipAssignments_Mentor_MentorId(
+                                        id,
+                                        mentor.getMentorId());
+
+                if (!exists) {
+
+                    throw new NotFoundException(
+                            "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
+                                    + id);
+                }
+
+                return roundCriteriaMapper.toResponse(roundCriteria);
+            }
+
+            case STUDENT -> {
+
+                Student student = studentRepository
+                        .findByUser_UserId(currentUser.getUserId())
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "User ID = "
+                                                + currentUser.getUserId()
+                                                + " chưa được liên kết với role STUDENT"));
+
+                boolean exists =
+                        roundCriteriaRepository
+                                .existsByRoundCriterionIdAndRound_Phase_InternshipAssignments_Student_StudentId(
+                                        id,
+                                        student.getStudentId());
+
+                if (!exists) {
+
+                    throw new NotFoundException(
+                            "Không tìm thấy tiêu chí trong đợt đánh giá với ID = "
+                                    + id);
+                }
+
+                return roundCriteriaMapper.toResponse(roundCriteria);
+            }
+
+            default -> throw new ForbiddenException("Không có quyền truy cập");
+        }
 
     }
 
@@ -339,6 +668,8 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                             + round.getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         }
 
+        boolean hasChanges = false;
+
         boolean hasResult =
                 assessmentResultRepository.existsByRound_RoundIdAndCriterion_CriterionId(
                         roundCriteria.getRound().getRoundId(),
@@ -371,8 +702,15 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                 throw new BadRequestException(
                         "Tổng weight của đợt đánh giá không được lớn hơn 1");
             }
+
+            if (request.getWeight().compareTo(roundCriteria.getWeight()) != 0) {
+                hasChanges = true;
+            }
         }
 
+        if (!hasChanges) {
+            return null;
+        }
 
         roundCriteriaMapper.updateEntityFromDto(request, roundCriteria);
 
@@ -385,7 +723,7 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
 
 
     @Override
-    public RoundCriteriaResponse deleteRoundCriteria(Long id) {
+    public void deleteRoundCriteria(Long id) {
 
         RoundCriteria roundCriteria =
                 roundCriteriaRepository.findById(id)
@@ -428,12 +766,8 @@ public class RoundCriteriaServiceImpl implements RoundCriteriaService {
                     "Không thể xóa tiêu chí trong đợt đánh giá vì đã có kết quả đánh giá");
         }
 
-        RoundCriteriaResponse response =
-                roundCriteriaMapper.toResponse(roundCriteria);
-
         roundCriteriaRepository.delete(roundCriteria);
 
-        return response;
     }
 
 }

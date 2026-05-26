@@ -20,5 +20,5 @@ public interface AssessmentResultService {
     AssessmentResultResponse updateResult(
             Long id, AssessmentResultUpdateRequest request);
 
-    AssessmentResultResponse deleteResult(Long id);
+    void deleteResult(Long id);
 }

@@ -13,6 +13,7 @@ import ra.edu.dto.Pagination;
 import ra.edu.dto.request.AssessmentRoundCreateRequest;
 import ra.edu.dto.request.AssessmentRoundFilterRequest;
 import ra.edu.dto.request.AssessmentRoundUpdateRequest;
+import ra.edu.dto.request.AssessmentRoundUpdateStatusRequest;
 import ra.edu.dto.response.AssessmentRoundResponse;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.entity.AssessmentRound;
@@ -30,6 +31,7 @@ import ra.edu.service.AssessmentRoundService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -296,12 +298,24 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                             + round.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " đến " + round.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")");
         }
 
-        boolean used =
-                (round.getRoundCriteria() != null
-                        && !round.getRoundCriteria().isEmpty())
-                        || (round.getAssessmentResults() != null
-                        && !round.getAssessmentResults().isEmpty());
+        List<String> violations = new ArrayList<>();
 
+        if (round.getRoundCriteria() != null
+                && !round.getRoundCriteria().isEmpty()) {
+
+            violations.add("RoundCriteria");
+        }
+
+        if (round.getAssessmentResults() != null
+                && !round.getAssessmentResults().isEmpty()) {
+
+            violations.add("AssessmentResult");
+        }
+
+        boolean isUsed = !violations.isEmpty();
+
+        String linkedEntities =
+                String.join(", ", violations);
 
         if (request.getRoundName() != null) {
 
@@ -317,10 +331,11 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
             if (!request.getRoundName()
                     .equalsIgnoreCase(round.getRoundName())) {
 
-                if (used) {
+                if (isUsed) {
 
                     throw new ConflictException(
-                            "Đợt đánh giá đã được sử dụng, không thể đổi tên đợt đánh giá");
+                            "Không thể thay đổi tên đợt đánh giá vì AssessmentRound đã liên kết với: "
+                                    + linkedEntities);
                 }
 
                 if (assessmentRoundRepository
@@ -338,25 +353,29 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
         }
 
         if (request.getDescription() != null) {
-            request.setDescription(request.getDescription().trim());
+
+            request.setDescription(
+                    request.getDescription().trim());
         }
 
         if (request.getStartDate() != null
                 && !request.getStartDate()
                 .equals(round.getStartDate())
-                && used) {
+                && isUsed) {
 
             throw new ConflictException(
-                    "Đợt đánh giá đã được sử dụng, không thể đổi ngày bắt đầu đợt đánh giá");
+                    "Không thể thay đổi ngày bắt đầu vì AssessmentRound đã liên kết với: "
+                            + linkedEntities);
         }
 
         if (request.getEndDate() != null
                 && !request.getEndDate()
                 .equals(round.getEndDate())
-                && used) {
+                && isUsed) {
 
             throw new ConflictException(
-                    "Đợt đánh giá đã được sử dụng, không thể đổi ngày kết thúc đợt đánh giá");
+                    "Không thể thay đổi ngày kết thúc vì AssessmentRound đã liên kết với: "
+                            + linkedEntities);
         }
 
         LocalDate newStartDate =
@@ -375,34 +394,56 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                     "Ngày bắt đầu đợt đánh giá không được sau ngày kết thúc đợt đánh giá");
         }
 
-        if (newStartDate.isBefore(round.getPhase().getStartDate()) || newEndDate.isAfter(round.getPhase().getEndDate())) {
+        if (newStartDate.isBefore(round.getPhase().getStartDate())
+                || newEndDate.isAfter(round.getPhase().getEndDate())) {
+
             throw new BadRequestException(
-                    "Thời gian đợt đánh giá sau khi cập nhật phải nằm trong khoảng thời gian của InternshipPhase ("
-                            + round.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " đến " + round.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")");
+                    "Thời gian đợt đánh giá phải nằm trong khoảng thời gian của InternshipPhase ("
+                            + round.getPhase().getStartDate()
+                            .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                            + " đến "
+                            + round.getPhase().getEndDate()
+                            .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                            + ")");
+        }
+
+        boolean hasChanges = false;
+
+        if (request.getRoundName() != null
+                && !request.getRoundName()
+                .equalsIgnoreCase(round.getRoundName())) {
+
+            hasChanges = true;
+        }
+
+        if (request.getStartDate() != null
+                && !request.getStartDate()
+                .equals(round.getStartDate())) {
+
+            hasChanges = true;
+        }
+
+        if (request.getEndDate() != null
+                && !request.getEndDate()
+                .equals(round.getEndDate())) {
+
+            hasChanges = true;
+        }
+
+        if (request.getDescription() != null
+                && !request.getDescription()
+                .equalsIgnoreCase(round.getDescription())) {
+
+            hasChanges = true;
+        }
+
+        if (!hasChanges) {
+
+            return null;
         }
 
         assessmentRoundMapper
                 .updateEntityFromDto(request, round);
-
-        if (request.getIsActive() != null) {
-
-            Boolean newActive =
-                    Boolean.parseBoolean(
-                            request.getIsActive());
-
-            if (!newActive.equals(round.getIsActive())
-                    && used) {
-
-                throw new ConflictException(
-                        "Đợt đánh giá đã được sử dụng, không thể đổi trạng thái hoạt động của đợt đánh giá");
-            }
-
-            if (newActive == round.getIsActive()) {
-                throw new BadRequestException("Đợt đánh giá này đã ở trạng thái " + (round.getIsActive() ? "ĐÃ KÍCH HOẠT" : "BỊ KHÓA") + " rồi!");
-            }
-
-            round.setIsActive(newActive);
-        }
 
         round.setUpdatedAt(LocalDateTime.now());
 
@@ -412,7 +453,43 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
     }
 
     @Override
-    public AssessmentRoundResponse deleteAssessmentRound(
+    public AssessmentRoundResponse updateAssessmentRoundStatus(Long id, AssessmentRoundUpdateStatusRequest request) {
+
+        AssessmentRound round = assessmentRoundRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy đợt đánh giá với ID = " + id));
+
+        boolean used =
+                (round.getRoundCriteria() != null
+                        && !round.getRoundCriteria().isEmpty())
+                        || (round.getAssessmentResults() != null
+                        && !round.getAssessmentResults().isEmpty());
+
+        Boolean newActive =
+                Boolean.parseBoolean(
+                        request.getIsActive());
+
+        if (!newActive.equals(round.getIsActive())
+                && used) {
+
+            throw new ConflictException(
+                    "Đợt đánh giá đã được sử dụng, không thể đổi trạng thái hoạt động của đợt đánh giá");
+        }
+
+        if (newActive == round.getIsActive()) {
+            return null;
+        }
+
+        round.setIsActive(newActive);
+
+        round.setUpdatedAt(LocalDateTime.now());
+
+        assessmentRoundRepository.save(round);
+
+        return assessmentRoundMapper.toResponse(round);
+    }
+
+    @Override
+    public void deleteAssessmentRound(
             Long id) {
 
         AssessmentRound round =
@@ -429,43 +506,30 @@ public class AssessmentRoundServiceImpl implements AssessmentRoundService {
                             + round.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " đến " + round.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")");
         }
 
-        boolean hasRoundCriteria =
-                round.getRoundCriteria() != null
-                        && !round.getRoundCriteria().isEmpty();
+        List<String> violations = new ArrayList<>();
 
-        boolean hasAssessmentResult =
-                round.getAssessmentResults() != null
-                        && !round.getAssessmentResults().isEmpty();
+        if (round.getRoundCriteria() != null
+                && !round.getRoundCriteria().isEmpty()) {
 
-        if (hasRoundCriteria && hasAssessmentResult) {
+            violations.add("RoundCriteria");
+        }
+
+        if (round.getAssessmentResults() != null
+                && !round.getAssessmentResults().isEmpty()) {
+
+            violations.add("AssessmentResult");
+        }
+
+        if (!violations.isEmpty()) {
 
             throw new ConflictException(
                     "Không thể xóa đợt đánh giá ID = "
                             + id
-                            + " vì đã liên kết với RoundCriteria và AssessmentResult");
+                            + " vì đã liên kết với: "
+                            + String.join(", ", violations));
         }
-
-        if (hasRoundCriteria) {
-
-            throw new ConflictException(
-                    "Không thể xóa đợt đánh giá ID = "
-                            + id
-                            + " vì đã liên kết với RoundCriteria");
-        }
-
-        if (hasAssessmentResult) {
-
-            throw new ConflictException(
-                    "Không thể xóa đợt đánh giá ID = "
-                            + id
-                            + " vì đã liên kết với AssessmentResult");
-        }
-
-        AssessmentRoundResponse response =
-                assessmentRoundMapper.toResponse(round);
 
         assessmentRoundRepository.delete(round);
 
-        return response;
     }
 }

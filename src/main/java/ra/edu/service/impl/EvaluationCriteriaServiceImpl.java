@@ -27,6 +27,7 @@ import ra.edu.service.EvaluationCriteriaService;
 
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -196,53 +197,58 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
                                         "Không tìm thấy tiêu chí đánh giá với ID = "
                                                 + id));
 
-        boolean used =
-                (criteria.getRoundCriteria() != null
-                        && !criteria.getRoundCriteria().isEmpty())
-                        || (criteria.getAssessmentResults() != null
-                        && !criteria.getAssessmentResults().isEmpty());
+        List<String> violations = new ArrayList<>();
+        if (criteria.getRoundCriteria() != null && !criteria.getRoundCriteria().isEmpty()) {
+            violations.add("RoundCriteria");
+        }
+        if (criteria.getAssessmentResults() != null && !criteria.getAssessmentResults().isEmpty()) {
+            violations.add("AssessmentResult");
+        }
+
+        boolean isUsed = !violations.isEmpty();
+        String linkedEntities = String.join(", ", violations);
+
+        boolean hasChanges = false;
 
         if (request.getCriterionName() != null) {
-
-            request.setCriterionName(
-                    request.getCriterionName().trim());
+            request.setCriterionName(request.getCriterionName().trim());
 
             if (request.getCriterionName().isBlank()) {
-
-                throw new BadRequestException(
-                        "Tên tiêu chí đánh giá không được để trống");
+                throw new BadRequestException("Tên tiêu chí đánh giá không được để trống");
             }
 
-            if (!request.getCriterionName()
-                    .equalsIgnoreCase(criteria.getCriterionName())) {
-
-                if (used) {
-
-                    throw new ConflictException(
-                            "Tiêu chí đánh giá đã được sử dụng, không thể thay đổi tên tiêu chí đánh giá");
+            if (!request.getCriterionName().equalsIgnoreCase(criteria.getCriterionName())) {
+                if (isUsed) {
+                    throw new ConflictException("Tiêu chí đánh giá đã được sử dụng ở [" + linkedEntities + "], không thể thay đổi tên!");
                 }
-            }
-
-            if (evaluationCriteriaRepository
-                    .existsByCriterionNameIgnoreCase(
-                            request.getCriterionName())) {
-
-                throw new ConflictException(
-                        "Tên tiêu chí đánh giá đã tồn tại");
+                if (evaluationCriteriaRepository.existsByCriterionNameIgnoreCase(request.getCriterionName())) {
+                    throw new ConflictException("Tên tiêu chí đánh giá đã tồn tại");
+                }
+                criteria.setCriterionName(request.getCriterionName());
+                hasChanges = true;
             }
         }
 
         if (request.getDescription() != null) {
             request.setDescription(request.getDescription().trim());
+            if (!request.getDescription().equals(criteria.getDescription())) {
+                criteria.setDescription(request.getDescription());
+                hasChanges = true;
+            }
         }
 
-        if (request.getMaxScore() != null
-                && request.getMaxScore()
-                .compareTo(criteria.getMaxScore()) != 0
-                && used) {
+        if (request.getMaxScore() != null) {
+            if (request.getMaxScore().compareTo(criteria.getMaxScore()) != 0) {
+                if (isUsed) {
+                    throw new ConflictException("Tiêu chí đánh giá đã được sử dụng ở [" + linkedEntities + "], không thể thay đổi điểm tối đa!");
+                }
+                criteria.setMaxScore(request.getMaxScore());
+                hasChanges = true;
+            }
+        }
 
-            throw new ConflictException(
-                    "Tiêu chí đánh giá đã được sử dụng, không thể thay đổi điểm tối đa");
+        if (!hasChanges) {
+            return null;
         }
 
         evaluationCriteriaMapper.updateEntityFromDto(request, criteria);
@@ -256,7 +262,7 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
 
 
     @Override
-    public EvaluationCriteriaResponse deleteCriterion(Long id) {
+    public void deleteCriterion(Long id) {
 
         EvaluationCriteria criteria =
                 evaluationCriteriaRepository.findById(id)
@@ -265,44 +271,20 @@ public class EvaluationCriteriaServiceImpl implements EvaluationCriteriaService 
                                         "Không tìm thấy tiêu chí đánh giá với ID = "
                                                 + id));
 
-        boolean hasRoundCriteria =
-                criteria.getRoundCriteria() != null
-                        && !criteria.getRoundCriteria().isEmpty();
-
-        boolean hasAssessmentResult =
-                criteria.getAssessmentResults() != null
-                        && !criteria.getAssessmentResults().isEmpty();
-
-        if (hasRoundCriteria && hasAssessmentResult) {
-
-            throw new ConflictException(
-                    "Không thể xóa tiêu chí đánh giá ID = "
-                            + id
-                            + " vì đã liên kết với RoundCriteria và AssessmentResult");
+        List<String> violations = new ArrayList<>();
+        if (criteria.getRoundCriteria() != null && !criteria.getRoundCriteria().isEmpty()) {
+            violations.add("RoundCriteria");
+        }
+        if (criteria.getAssessmentResults() != null && !criteria.getAssessmentResults().isEmpty()) {
+            violations.add("AssessmentResult");
         }
 
-        if (hasRoundCriteria) {
-
-            throw new ConflictException(
-                    "Không thể xóa tiêu chí đánh giá ID = "
-                            + id
-                            + " vì đã liên kết với RoundCriteria");
+        if (!violations.isEmpty()) {
+            throw new ConflictException("Không thể xóa tiêu chí đánh giá ID = " + id
+                    + " vì đã liên kết với: " + String.join(", ", violations));
         }
-
-        if (hasAssessmentResult) {
-
-            throw new ConflictException(
-                    "Không thể xóa tiêu chí đánh giá ID = "
-                            + id
-                            + " vì đã liên kết với AssessmentResult");
-        }
-
-        EvaluationCriteriaResponse response =
-                evaluationCriteriaMapper.toResponse(criteria);
 
         evaluationCriteriaRepository.delete(criteria);
-
-        return response;
     }
 
 }

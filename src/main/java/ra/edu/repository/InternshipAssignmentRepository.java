@@ -15,6 +15,10 @@ public interface InternshipAssignmentRepository extends JpaRepository<Internship
             Long phaseId
     );
 
+    boolean existsByStudent_User_UserId(Long userId);
+
+    boolean existsByMentor_User_UserId(Long userId);
+
     Page<InternshipAssignment> findAllByStudent_StudentId(
             Long studentId,
             Pageable pageable

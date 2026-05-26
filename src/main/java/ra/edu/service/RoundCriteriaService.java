@@ -6,6 +6,8 @@ import ra.edu.dto.request.RoundCriteriaUpdateRequest;
 import ra.edu.dto.response.PaginationResponse;
 import ra.edu.dto.response.RoundCriteriaResponse;
 
+import java.util.List;
+
 public interface RoundCriteriaService {
 
     PaginationResponse<RoundCriteriaResponse> getAllRoundCriteria(
@@ -19,5 +21,7 @@ public interface RoundCriteriaService {
     RoundCriteriaResponse updateRoundCriteria
             (Long id, RoundCriteriaUpdateRequest request);
 
-    RoundCriteriaResponse deleteRoundCriteria(Long id);
+    void deleteRoundCriteria(Long id);
+
+    List<RoundCriteriaResponse> getCriteriaByRoundId(Long roundId);
 }

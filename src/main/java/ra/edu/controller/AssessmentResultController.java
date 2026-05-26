@@ -9,6 +9,7 @@ import ra.edu.dto.request.AssessmentResultCreateRequest;
 import ra.edu.dto.request.AssessmentResultFilterRequest;
 import ra.edu.dto.request.AssessmentResultUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
+import ra.edu.dto.response.AssessmentResultResponse;
 import ra.edu.service.AssessmentResultService;
 
 
@@ -20,7 +21,7 @@ public class AssessmentResultController {
     private final AssessmentResultService assessmentResultService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<?>> getAll(
+    public ResponseEntity<?> getAll(
             @Valid @ModelAttribute AssessmentResultFilterRequest filter
     ) {
         return ResponseEntity.ok(
@@ -32,7 +33,7 @@ public class AssessmentResultController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> getById(
+    public ResponseEntity<?> getById(
             @PathVariable Long id) {
 
         return ResponseEntity.ok(
@@ -42,7 +43,7 @@ public class AssessmentResultController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<?>> create(
+    public ResponseEntity<?> create(
             @Valid @RequestBody AssessmentResultCreateRequest request) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -53,24 +54,28 @@ public class AssessmentResultController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> update(
+    public ResponseEntity<?> update(
             @PathVariable Long id,
             @Valid @RequestBody AssessmentResultUpdateRequest request) {
 
+        AssessmentResultResponse response = assessmentResultService.updateResult(id, request);
+
+        if (response == null) {
+            return ResponseEntity.noContent().build();
+        }
+
         return ResponseEntity.ok(
                 ApiResponse.success(
-                        "Cập nhật AssessmentResult thành công",
-                        assessmentResultService.updateResult(id, request)));
+                        "Cập nhật AssessmentResult thành công", response));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> delete(
+    public ResponseEntity<?> delete(
             @PathVariable Long id) {
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Xóa AssessmentResult thành công",
-                        assessmentResultService.deleteResult(id)));
+        assessmentResultService.deleteResult(id);
+
+        return ResponseEntity.noContent().build();
     }
 
 

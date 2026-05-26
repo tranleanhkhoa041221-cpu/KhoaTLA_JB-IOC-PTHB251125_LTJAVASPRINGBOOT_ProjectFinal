@@ -9,6 +9,7 @@ import ra.edu.dto.request.EvaluationCriteriaCreateRequest;
 import ra.edu.dto.request.EvaluationCriteriaFilterRequest;
 import ra.edu.dto.request.EvaluationCriteriaUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
+import ra.edu.dto.response.EvaluationCriteriaResponse;
 import ra.edu.service.EvaluationCriteriaService;
 
 
@@ -20,7 +21,7 @@ public class EvaluationCriteriaController {
     private final EvaluationCriteriaService evaluationCriteriaService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<?>> getAll(
+    public ResponseEntity<?> getAll(
             @Valid @ModelAttribute EvaluationCriteriaFilterRequest filter) {
 
         return ResponseEntity.ok(
@@ -30,14 +31,14 @@ public class EvaluationCriteriaController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> getById(@PathVariable Long id) {
+    public ResponseEntity<?> getById(@PathVariable Long id) {
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy thông tin chi tiết tiêu chí đánh giá thành công",
                         evaluationCriteriaService.getCriterionById(id)));
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<?>> create(
+    public ResponseEntity<?> create(
             @Valid @RequestBody EvaluationCriteriaCreateRequest request) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -50,15 +51,21 @@ public class EvaluationCriteriaController {
             @PathVariable Long id,
             @Valid @RequestBody EvaluationCriteriaUpdateRequest request) {
 
+        EvaluationCriteriaResponse response = evaluationCriteriaService.updateCriterion(id, request);
+
+        if (response == null) {
+            return ResponseEntity.noContent().build();
+        }
+
         return ResponseEntity.ok(
-                ApiResponse.success("Cập nhật tiêu chí đánh giá thành công",
-                        evaluationCriteriaService.updateCriterion(id, request)));
+                ApiResponse.success("Cập nhật tiêu chí đánh giá thành công", response));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> delete(@PathVariable Long id) {
-        return ResponseEntity.ok(
-                ApiResponse.success("Xóa tiêu chí đánh giá thành công",
-                        evaluationCriteriaService.deleteCriterion(id)));
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+
+        evaluationCriteriaService.deleteCriterion(id);
+
+        return ResponseEntity.noContent().build();
     }
 }

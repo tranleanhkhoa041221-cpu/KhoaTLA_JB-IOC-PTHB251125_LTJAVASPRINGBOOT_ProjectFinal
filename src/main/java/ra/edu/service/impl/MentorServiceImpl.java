@@ -411,6 +411,19 @@ public class MentorServiceImpl implements MentorService {
             request.setAcademicRank(request.getAcademicRank().trim());
         }
 
+        boolean hasChanges = false;
+
+        if (request.getDepartment() != null && !request.getDepartment().equalsIgnoreCase(mentor.getDepartment())) {
+            hasChanges = true;
+        }
+        if (request.getAcademicRank() != null && !request.getAcademicRank().equalsIgnoreCase(mentor.getAcademicRank())) {
+            hasChanges = true;
+        }
+
+        if (!hasChanges) {
+            return null;
+        }
+
         mentorMapper.updateEntityFromDto(request, mentor);
 
         mentor.setUpdatedAt(LocalDateTime.now());

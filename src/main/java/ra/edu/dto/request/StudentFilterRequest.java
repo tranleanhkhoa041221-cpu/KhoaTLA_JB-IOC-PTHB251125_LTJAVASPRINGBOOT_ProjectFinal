@@ -1,5 +1,6 @@
 package ra.edu.dto.request;
 
+import jakarta.validation.constraints.Past;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -18,6 +19,7 @@ public class StudentFilterRequest {
 
     private String address;
 
+    @Past(message = "Ngày sinh không được ở tương lai")
     @DateTimeFormat(pattern = "dd/MM/yyyy")
     private LocalDate dateOfBirth;
 

@@ -1,8 +1,6 @@
 package ra.edu.controller;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,9 +10,9 @@ import ra.edu.dto.request.RoundCriteriaCreateRequest;
 import ra.edu.dto.request.RoundCriteriaFilterRequest;
 import ra.edu.dto.request.RoundCriteriaUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
+import ra.edu.dto.response.RoundCriteriaResponse;
 import ra.edu.service.RoundCriteriaService;
 
-import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/round-criteria")
@@ -25,7 +23,7 @@ public class RoundCriteriaController {
     private final RoundCriteriaService roundCriteriaService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<?>> getAll(
+    public ResponseEntity<?> getAll(
             @Valid @ModelAttribute RoundCriteriaFilterRequest filter) {
 
         return ResponseEntity.ok(
@@ -34,8 +32,18 @@ public class RoundCriteriaController {
                         roundCriteriaService.getAllRoundCriteria(filter)));
     }
 
+    @GetMapping("/round/{roundId}")
+    public ResponseEntity<?> getCriteriaByRoundId(
+            @PathVariable Long roundId) {
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Lấy danh sách tiêu chí theo đợt đánh giá thành công",
+                        roundCriteriaService.getCriteriaByRoundId(roundId)));
+    }
+
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> getById(@PathVariable Long id) {
+    public ResponseEntity<?> getById(@PathVariable Long id) {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
@@ -44,7 +52,7 @@ public class RoundCriteriaController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<?>> create(
+    public ResponseEntity<?> create(
             @Valid @RequestBody RoundCriteriaCreateRequest request) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -55,22 +63,26 @@ public class RoundCriteriaController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> update(
+    public ResponseEntity<?> update(
             @PathVariable Long id,
             @Valid @RequestBody RoundCriteriaUpdateRequest request) {
 
+        RoundCriteriaResponse response = roundCriteriaService.updateRoundCriteria(id, request);
+
+        if (response == null) {
+            return ResponseEntity.noContent().build();
+        }
+
         return ResponseEntity.ok(
                 ApiResponse.success(
-                        "Cập nhật tiêu chí trong đợt đánh giá thành công",
-                        roundCriteriaService.updateRoundCriteria(id, request)));
+                        "Cập nhật tiêu chí trong đợt đánh giá thành công", response));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> delete(@PathVariable Long id) {
+    public ResponseEntity<?> delete(@PathVariable Long id) {
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Xóa tiêu chí trong đợt đánh giá thành công",
-                        roundCriteriaService.deleteRoundCriteria(id)));
+        roundCriteriaService.deleteRoundCriteria(id);
+
+        return ResponseEntity.noContent().build();
     }
 }

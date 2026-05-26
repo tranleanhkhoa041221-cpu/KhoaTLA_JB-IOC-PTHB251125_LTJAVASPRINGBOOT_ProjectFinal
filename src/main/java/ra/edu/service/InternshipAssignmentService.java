@@ -26,5 +26,5 @@ public interface InternshipAssignmentService {
     InternshipAssignmentResponse updateAssignmentStatus
             (Long id, InternshipAssignmentUpdateStatusRequest request);
 
-    InternshipAssignmentResponse deleteAssignment(Long id);
+    void deleteAssignment(Long id);
 }

@@ -110,6 +110,8 @@ public class SecurityConfig {
                         // Round Criteria
                         .requestMatchers(HttpMethod.GET, "/api/round-criteria").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
 
+                        .requestMatchers(HttpMethod.GET, "/api/round-criteria/round/*").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
+
                         .requestMatchers(HttpMethod.GET, "/api/round-criteria/*").hasAnyRole("ADMIN", "MENTOR", "STUDENT")
 
                         .requestMatchers(HttpMethod.POST, "/api/round-criteria").hasRole("ADMIN")

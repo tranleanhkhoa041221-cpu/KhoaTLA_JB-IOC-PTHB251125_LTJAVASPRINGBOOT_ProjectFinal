@@ -9,6 +9,7 @@ import ra.edu.dto.request.MentorCreateRequest;
 import ra.edu.dto.request.MentorFilterRequest;
 import ra.edu.dto.request.MentorUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
+import ra.edu.dto.response.MentorResponse;
 import ra.edu.service.MentorService;
 
 @RestController
@@ -19,7 +20,7 @@ public class MentorController {
     private final MentorService mentorService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<?>> getAll(
+    public ResponseEntity<?> getAll(
             @Valid @ModelAttribute MentorFilterRequest filter) {
 
         return ResponseEntity.ok(
@@ -28,7 +29,7 @@ public class MentorController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> getById(@PathVariable Long id) {
+    public ResponseEntity<?> getById(@PathVariable Long id) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy thông tin chi tiết mentor thành công",
@@ -36,7 +37,7 @@ public class MentorController {
     }
 
     @GetMapping("/assigned")
-    public ResponseEntity<ApiResponse<?>> getAssigned(
+    public ResponseEntity<?> getAssigned(
             @Valid @ModelAttribute MentorFilterRequest filter) {
 
         return ResponseEntity.ok(
@@ -45,7 +46,7 @@ public class MentorController {
     }
 
     @GetMapping("/assigned/{id}")
-    public ResponseEntity<ApiResponse<?>> getAssignedById(@PathVariable Long id) {
+    public ResponseEntity<?> getAssignedById(@PathVariable Long id) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy thông tin chi tiết mentor được phân công thành công",
@@ -53,7 +54,7 @@ public class MentorController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<?>> create(
+    public ResponseEntity<?> create(
             @Valid @RequestBody MentorCreateRequest request) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -62,12 +63,18 @@ public class MentorController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> update(
+    public ResponseEntity<?> update(
             @PathVariable Long id,
             @Valid @RequestBody MentorUpdateRequest request) {
 
+        MentorResponse response = mentorService.updateMentor(id, request);
+
+        if (response == null) {
+            return ResponseEntity.noContent().build();
+        }
+
+
         return ResponseEntity.ok(
-                ApiResponse.success("Cập nhật mentor thành công",
-                        mentorService.updateMentor(id, request)));
+                ApiResponse.success("Cập nhật mentor thành công", response));
     }
 }

@@ -19,5 +19,5 @@ public interface EvaluationCriteriaService {
     EvaluationCriteriaResponse updateCriterion
             (Long id, EvaluationCriteriaUpdateRequest request);
 
-    EvaluationCriteriaResponse deleteCriterion(Long id);
+    void deleteCriterion(Long id);
 }

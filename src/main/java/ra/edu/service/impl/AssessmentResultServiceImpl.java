@@ -1271,6 +1271,28 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                     "Không tìm thấy AssessmentResult với ID = " + result.getResultId());
         }
 
+        boolean hasChanges = false;
+
+        if (request.getScore() != null
+                && request.getScore().compareTo(result.getScore()) != 0) {
+
+            hasChanges = true;
+        }
+
+        if (request.getComments() != null
+                && !request.getComments()
+                .equalsIgnoreCase(
+                        result.getComments() == null
+                                ? ""
+                                : result.getComments())) {
+
+            hasChanges = true;
+        }
+
+        if (!hasChanges) {
+            return null;
+        }
+
         assessmentResultMapper.updateEntityFromDto(request, result);
 
         result.setEvaluationDate(LocalDateTime.now());
@@ -1284,7 +1306,7 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
 
 
     @Override
-    public AssessmentResultResponse deleteResult(Long id) {
+    public void deleteResult(Long id) {
 
         User currentUser = getCurrentUser();
 
@@ -1347,12 +1369,8 @@ public class AssessmentResultServiceImpl implements AssessmentResultService {
                     "Không tìm thấy AssessmentResult với ID = " + result.getResultId());
         }
 
-        AssessmentResultResponse response =
-                assessmentResultMapper.toResponse(result);
-
         assessmentResultRepository.delete(result);
 
-        return response;
     }
 
 

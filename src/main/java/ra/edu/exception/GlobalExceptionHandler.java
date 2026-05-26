@@ -1,6 +1,5 @@
 package ra.edu.exception;
 
-import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -104,21 +103,21 @@ public class GlobalExceptionHandler {
     }
 
 
-//    @ExceptionHandler(BindException.class)
-//    public ResponseEntity<ApiResponse<?>> handleBindException(
-//            BindException ex) {
-//
-//        List<ValidationError> errors = ex.getBindingResult()
-//                .getFieldErrors()
-//                .stream()
-//                .map(this::buildValidationError)
-//                .toList();
-//
-//        return badRequest(
-//                "Dữ liệu không hợp lệ",
-//                errors
-//        );
-//    }
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ApiResponse<?>> handleBindException(
+            BindException ex) {
+
+        List<ValidationError> errors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(this::buildValidationError)
+                .toList();
+
+        return badRequest(
+                "Dữ liệu không hợp lệ",
+                errors
+        );
+    }
 
 
     @ExceptionHandler(NotFoundException.class)
@@ -226,86 +225,50 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    private ValidationError buildValidationError(
-            FieldError err) {
-
+    private ValidationError buildValidationError(FieldError err) {
         String message = err.getDefaultMessage();
-
         if (message == null) {
             message = "Dữ liệu không hợp lệ";
         }
 
+        if ("typeMismatch".equals(err.getCode())) {
+            String validationCodes = Arrays.toString(err.getCodes());
 
-        if (message.contains("Long")
-                || message.contains("Integer")
-                || message.contains("long")
-                || message.contains("int")) {
-
-            return new ValidationError(
-                    err.getField(),
-                    "Phải là số nguyên"
-            );
+            if (validationCodes.contains("java.time.LocalDate")) {
+                return new ValidationError(err.getField(), "Ngày không đúng định dạng dd/MM/yyyy");
+            }
+            if (validationCodes.contains("java.time.LocalDateTime")) {
+                return new ValidationError(err.getField(), "Ngày giờ không đúng định dạng dd/MM/yyyy HH:mm");
+            }
+            if (validationCodes.contains("Integer") || validationCodes.contains("Long")
+                    || validationCodes.contains(".int") || validationCodes.contains(".long")) {
+                return new ValidationError(err.getField(), "Phải là số nguyên");
+            }
+            if (validationCodes.contains("Double") || validationCodes.contains("Float")
+                    || validationCodes.contains("BigDecimal") || validationCodes.contains(".double") || validationCodes.contains(".float")) {
+                return new ValidationError(err.getField(), "Phải là số");
+            }
+            if (validationCodes.contains("UserRole")) {
+                return new ValidationError(err.getField(), "Role không hợp lệ. Giá trị hợp lệ: "
+                        + Arrays.stream(UserRole.values()).map(Enum::name).collect(Collectors.joining(", ")));
+            }
+            if (validationCodes.contains("InternshipAssignmentsStatus")) {
+                return new ValidationError(err.getField(), "Status không hợp lệ. Giá trị hợp lệ: "
+                        + Arrays.stream(InternshipAssignmentsStatus.values()).map(Enum::name).collect(Collectors.joining(", ")));
+            }
         }
-
-
-        if (message.contains("Double")
-                || message.contains("Float")
-                || message.contains("BigDecimal")
-                || message.contains("double")
-                || message.contains("float")) {
-
-            return new ValidationError(
-                    err.getField(),
-                    "Phải là số"
-            );
-        }
-
-
-        if (message.contains("LocalDateTime")) {
-
-            return new ValidationError(
-                    err.getField(),
-                    "Ngày giờ không đúng định dạng dd/MM/yyyy HH:mm"
-            );
-        }
-
-        if (message.contains("LocalDate")) {
-
-            return new ValidationError(
-                    err.getField(),
-                    "Ngày không đúng định dạng dd/MM/yyyy"
-            );
-        }
-
 
         if (message.contains("UserRole")) {
-
-            return new ValidationError(
-                    err.getField(),
-                    "Role không hợp lệ. Giá trị hợp lệ: "
-                            + Arrays.stream(UserRole.values())
-                            .map(Enum::name)
-                            .collect(Collectors.joining(", "))
-            );
+            return new ValidationError(err.getField(), "Role không hợp lệ. Giá trị hợp lệ: "
+                    + Arrays.stream(UserRole.values()).map(Enum::name).collect(Collectors.joining(", ")));
         }
 
-        if (message.contains(
-                "InternshipAssignmentsStatus")) {
-
-            return new ValidationError(
-                    err.getField(),
-                    "Status không hợp lệ. Giá trị hợp lệ: "
-                            + Arrays.stream(
-                                    InternshipAssignmentsStatus.values())
-                            .map(Enum::name)
-                            .collect(Collectors.joining(", "))
-            );
+        if (message.contains("InternshipAssignmentsStatus")) {
+            return new ValidationError(err.getField(), "Status không hợp lệ. Giá trị hợp lệ: "
+                    + Arrays.stream(InternshipAssignmentsStatus.values()).map(Enum::name).collect(Collectors.joining(", ")));
         }
 
-        return new ValidationError(
-                err.getField(),
-                message
-        );
+        return new ValidationError(err.getField(), message);
     }
 
     private String extractFieldName(String message) {

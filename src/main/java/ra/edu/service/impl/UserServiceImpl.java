@@ -5,8 +5,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import ra.edu.config.principal.UserPrincipal;
 import ra.edu.dto.Pagination;
 import ra.edu.dto.request.*;
 import ra.edu.dto.response.PaginationResponse;
@@ -17,13 +20,11 @@ import ra.edu.exception.BadRequestException;
 import ra.edu.exception.ConflictException;
 import ra.edu.exception.NotFoundException;
 import ra.edu.mapper.UserMapper;
-import ra.edu.repository.AssessmentResultRepository;
-import ra.edu.repository.MentorRepository;
-import ra.edu.repository.StudentRepository;
-import ra.edu.repository.UserRepository;
+import ra.edu.repository.*;
 import ra.edu.service.UserService;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -41,6 +42,19 @@ public class UserServiceImpl implements UserService {
     private final MentorRepository mentorRepository;
 
     private final AssessmentResultRepository assessmentResultRepository;
+
+    private final InternshipAssignmentRepository internshipAssignmentRepository;
+
+    private User getCurrentUser() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        UserPrincipal principal =
+                (UserPrincipal) authentication.getPrincipal();
+
+        return principal.getUser();
+    }
 
     @Override
     public PaginationResponse<UserResponse> getAllUsers(
@@ -209,6 +223,14 @@ public class UserServiceImpl implements UserService {
                                         "Không tìm thấy User với ID = "
                                                 + id));
 
+        User currentUser = getCurrentUser();
+
+        if (user.getRole() == UserRole.ADMIN && !user.getUserId().equals(currentUser.getUserId())) {
+            throw new ConflictException("Không được phép cập nhật thông tin của ADMIN khác!");
+        }
+
+        boolean hasChanges = false;
+
         if (request.getUsername() != null) {
 
             if (request.getUsername().isBlank()) {
@@ -216,7 +238,6 @@ public class UserServiceImpl implements UserService {
                 throw new BadRequestException(
                         "username không được để trống");
             }
-
 
             if (!user.getUsername()
                     .equalsIgnoreCase(request.getUsername())
@@ -226,6 +247,11 @@ public class UserServiceImpl implements UserService {
                 throw new ConflictException(
                         "Username đã tồn tại");
             }
+
+            if (!user.getUsername().equalsIgnoreCase(request.getUsername())) {
+                hasChanges = true;
+            }
+
         }
 
         if (request.getFullName() != null) {
@@ -237,6 +263,10 @@ public class UserServiceImpl implements UserService {
 
                 throw new BadRequestException(
                         "Họ và tên không được để trống");
+            }
+
+            if (!user.getFullName().equalsIgnoreCase(request.getFullName())) {
+                hasChanges = true;
             }
         }
 
@@ -251,7 +281,6 @@ public class UserServiceImpl implements UserService {
                         "Email không được để trống");
             }
 
-
             if (!user.getEmail()
                     .equalsIgnoreCase(request.getEmail())
                     && userRepository.existsByEmailIgnoreCase(
@@ -259,6 +288,10 @@ public class UserServiceImpl implements UserService {
 
                 throw new ConflictException(
                         "Email đã tồn tại");
+            }
+
+            if (!user.getEmail().equalsIgnoreCase(request.getEmail())) {
+                hasChanges = true;
             }
         }
 
@@ -281,7 +314,16 @@ public class UserServiceImpl implements UserService {
                 throw new ConflictException(
                         "Số điện thoại đã tồn tại");
             }
+
+            if (!user.getPhoneNumber().equalsIgnoreCase(request.getPhoneNumber())) {
+                hasChanges = true;
+            }
         }
+
+            if (!hasChanges) {
+                return null;
+            }
+
 
         userMapper.updateEntityFromDto(request, user);
 
@@ -310,56 +352,33 @@ public class UserServiceImpl implements UserService {
                     "Không được phép thay đổi trạng thái của ADMIN");
         }
 
-
-        boolean hasStudent =
-                studentRepository.existsByUser_UserId(user.getUserId());
-
-        boolean hasMentor =
-                mentorRepository.existsByUser_UserId(user.getUserId());
-
-        boolean hasAssessmentResult =
-                assessmentResultRepository
-                        .existsByEvaluatedBy_UserId(user.getUserId());
-
-        if (hasMentor && hasAssessmentResult) {
-
-            throw new ConflictException(
-                    "Không thể thay đổi trạng thái User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với Mentor và AssessmentResult");
-        }
-
-        if (hasStudent) {
-
-            throw new ConflictException(
-                    "Không thể thay đổi trạng thái User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với Student");
-        }
-
-        if (hasMentor) {
-
-            throw new ConflictException(
-                    "Không thể thay đổi trạng thái User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với Mentor");
-        }
-
-        if (hasAssessmentResult) {
-
-            throw new ConflictException(
-                    "Không thể thay đổi trạng thái User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với AssessmentResult");
-        }
-
         boolean oldStatus = user.getIsActive();
         boolean newStatus = Boolean.parseBoolean(request.getIsActive());
 
         if (oldStatus == newStatus) {
-            throw new BadRequestException(
-                    "Tài khoản này đã ở trạng thái " + (oldStatus ? "ĐÃ KÍCH HOẠT" : "BỊ KHÓA") + " rồi!");
+            return null;
         }
+
+        List<String> violations = new ArrayList<>();
+        if (studentRepository.existsByUser_UserId(user.getUserId())) {
+            violations.add("Student");
+        }
+        if (mentorRepository.existsByUser_UserId(user.getUserId())) {
+            violations.add("Mentor");
+        }
+        if (internshipAssignmentRepository.existsByStudent_User_UserId(user.getUserId())
+                || internshipAssignmentRepository.existsByMentor_User_UserId(user.getUserId())) {
+            violations.add("InternshipAssignment");
+        }
+        if (assessmentResultRepository.existsByEvaluatedBy_UserId(user.getUserId())) {
+            violations.add("AssessmentResult");
+        }
+
+        if (!violations.isEmpty()) {
+            throw new ConflictException("Không thể thay đổi trạng thái User ID = " + id
+                    + " vì đã liên kết với: " + String.join(", ", violations));
+        }
+
 
         user.setIsActive(newStatus);
 
@@ -391,55 +410,33 @@ public class UserServiceImpl implements UserService {
                     "Không được phép thay đổi role của ADMIN");
         }
 
-        boolean hasStudent =
-                studentRepository.existsByUser_UserId(user.getUserId());
-
-        boolean hasMentor =
-                mentorRepository.existsByUser_UserId(user.getUserId());
-
-        boolean hasAssessmentResult =
-                assessmentResultRepository
-                        .existsByEvaluatedBy_UserId(user.getUserId());
-
-        if (hasMentor && hasAssessmentResult) {
-
-            throw new ConflictException(
-                    "Không thể thay đổi role của User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với Mentor và AssessmentResult");
-        }
-
-        if (hasStudent) {
-
-            throw new ConflictException(
-                    "Không thể thay đổi role của User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với Student");
-        }
-
-        if (hasMentor) {
-
-            throw new ConflictException(
-                    "Không thể thay đổi role của User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với Mentor");
-        }
-
-        if (hasAssessmentResult) {
-
-            throw new ConflictException(
-                    "Không thể thay đổi role của User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với AssessmentResult");
-        }
-
         UserRole oldRole = user.getRole();
         UserRole newRole = request.getRole();
 
         if (oldRole == newRole) {
-            throw new BadRequestException(
-                    "Tài khoản này đã có quyền (role) là " + oldRole + " rồi!");
+            return null;
         }
+
+        List<String> violations = new ArrayList<>();
+        if (studentRepository.existsByUser_UserId(user.getUserId())) {
+            violations.add("Student");
+        }
+        if (mentorRepository.existsByUser_UserId(user.getUserId())) {
+            violations.add("Mentor");
+        }
+        if (internshipAssignmentRepository.existsByStudent_User_UserId(user.getUserId())
+                || internshipAssignmentRepository.existsByMentor_User_UserId(user.getUserId())) {
+            violations.add("InternshipAssignment");
+        }
+        if (assessmentResultRepository.existsByEvaluatedBy_UserId(user.getUserId())) {
+            violations.add("AssessmentResult");
+        }
+
+        if (!violations.isEmpty()) {
+            throw new ConflictException("Không thể thay đổi role của User ID = " + id
+                    + " vì đã liên kết với: " + String.join(", ", violations));
+        }
+
 
         user.setRole(newRole);
 
@@ -453,7 +450,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse deleteUser(Long id) {
+    public void deleteUser(Long id) {
 
         User user =
                 userRepository.findById(id)
@@ -468,52 +465,28 @@ public class UserServiceImpl implements UserService {
                     "Không được phép xóa tài khoản ADMIN");
         }
 
-        boolean hasStudent =
-                studentRepository.existsByUser_UserId(user.getUserId());
+        List<String> violations = new ArrayList<>();
 
-        boolean hasMentor =
-                mentorRepository.existsByUser_UserId(user.getUserId());
-
-        boolean hasAssessmentResult =
-                assessmentResultRepository
-                        .existsByEvaluatedBy_UserId(user.getUserId());
-
-        if (hasMentor && hasAssessmentResult) {
-
-            throw new ConflictException(
-                    "Không thể xóa User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với Mentor và AssessmentResult");
+        if (studentRepository.existsByUser_UserId(user.getUserId())) {
+            violations.add("Student");
+        }
+        if (mentorRepository.existsByUser_UserId(user.getUserId())) {
+            violations.add("Mentor");
+        }
+        if (internshipAssignmentRepository.existsByStudent_User_UserId(user.getUserId())
+                || internshipAssignmentRepository.existsByMentor_User_UserId(user.getUserId())) {
+            violations.add("InternshipAssignment");
+        }
+        if (assessmentResultRepository.existsByEvaluatedBy_UserId(user.getUserId())) {
+            violations.add("AssessmentResult");
         }
 
-        if (hasStudent) {
-
-            throw new ConflictException(
-                    "Không thể xóa User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với Student");
+        if (!violations.isEmpty()) {
+            throw new ConflictException("Không thể xóa User ID = " + id
+                    + " vì đã liên kết với: " + String.join(", ", violations));
         }
-
-        if (hasMentor) {
-
-            throw new ConflictException(
-                    "Không thể xóa User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với Mentor");
-        }
-
-        if (hasAssessmentResult) {
-
-            throw new ConflictException(
-                    "Không thể xóa User ID = "
-                            + user.getUserId()
-                            + " vì đã liên kết với AssessmentResult");
-        }
-
-        UserResponse response = userMapper.toResponse(user);
 
         userRepository.delete(user);
 
-        return response;
     }
 }

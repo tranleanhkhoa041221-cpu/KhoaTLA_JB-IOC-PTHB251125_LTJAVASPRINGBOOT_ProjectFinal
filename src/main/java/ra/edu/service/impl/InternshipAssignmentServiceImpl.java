@@ -768,11 +768,11 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
         if (now.isBefore(assignment.getPhase().getStartDate()) || now.isAfter(assignment.getPhase().getEndDate())) {
             throw new BadRequestException("Không thể cập nhật. " +
                     "Hiện tại không nằm trong thời gian của InternshipPhase ID = "
-                            + assignment.getPhase().getPhaseId()
-                            + " | startDate = "
-                            + assignment.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-                            + " | endDate = "
-                            + assignment.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                    + assignment.getPhase().getPhaseId()
+                    + " | startDate = "
+                    + assignment.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    + " | endDate = "
+                    + assignment.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         }
 
         if (assignment.getStatus() != InternshipAssignmentsStatus.PENDING) {
@@ -784,19 +784,8 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                             + ". Chỉ ở trạng thái PENDING mới được cập nhật");
         }
 
-        boolean used =
-                assignment.getAssessmentResults() != null
-                        && !assignment.getAssessmentResults().isEmpty();
+        boolean hasChanges = false;
 
-        if (used
-                && request.getMentorId() != null && !assignment.getMentor()
-                .getMentorId().equals(request.getMentorId())) {
-
-            throw new ConflictException(
-                    "Không thể cập nhật Mentor cho Assignment ID = "
-                            + id
-                            + " vì assignment đã liên kết với AssessmentResult");
-        }
 
         if (request.getMentorId() != null) {
 
@@ -807,10 +796,31 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                     mentorRepository.findByUser_UserId(request.getMentorId())
                             .orElseThrow(() -> new NotFoundException("User ID = " + request.getMentorId() + " chưa được liên kết với role MENTOR"));
 
-            assignment.setMentor(mentor);
+            boolean used =
+                    assignment.getAssessmentResults() != null
+                            && !assignment.getAssessmentResults().isEmpty();
 
-            assignment.setAssignedDate(LocalDateTime.now());
+            if (!assignment.getMentor().getMentorId().equals(mentor.getMentorId())) {
 
+                if (used) {
+
+                    throw new ConflictException(
+                            "Không thể cập nhật Mentor cho Assignment ID = "
+                                    + id
+                                    + " vì assignment đã liên kết với AssessmentResult");
+                }
+
+                assignment.setMentor(mentor);
+
+                hasChanges = true;
+
+                assignment.setAssignedDate(LocalDateTime.now());
+            }
+        }
+
+
+        if (!hasChanges) {
+            return null;
         }
 
         internshipAssignmentMapper.updateEntityFromDto(request, assignment);
@@ -834,21 +844,37 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                                         "Không tìm thấy InternshipAssignment với ID = " + id));
 
         LocalDate now = LocalDate.now();
-        if (now.isBefore(assignment.getPhase().getStartDate()) || now.isAfter(assignment.getPhase().getEndDate())) {
-            throw new BadRequestException("Không thể cập nhật Status. " +
-                    "Hiện tại không nằm trong thời gian của InternshipPhase ID = "
-                    + assignment.getPhase().getPhaseId()
-                    + " | startDate = "
-                    + assignment.getPhase().getStartDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-                    + " | endDate = "
-                    + assignment.getPhase().getEndDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-        }
+        LocalDate startDate = assignment.getPhase().getStartDate();
+        LocalDate endDate = assignment.getPhase().getEndDate();
 
         InternshipAssignmentsStatus oldStatus = assignment.getStatus();
         InternshipAssignmentsStatus newStatus = request.getStatus();
 
+        if (now.isBefore(startDate)) {
+
+            if (newStatus == InternshipAssignmentsStatus.IN_PROGRESS) {
+                throw new BadRequestException("Không thể chuyển sang status IN_PROGRESS! Đợt thực tập này phải đến ngày "
+                        + startDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " mới chính thức bắt đầu.");
+            }
+        }
+
+        if (now.isAfter(endDate)) {
+
+            if (newStatus == InternshipAssignmentsStatus.IN_PROGRESS) {
+                throw new BadRequestException("Không thể chuyển sang status IN_PROGRESS! Đợt thực tập này đã kết thúc từ ngày "
+                        + endDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " rồi.");
+            }
+
+            if (newStatus == InternshipAssignmentsStatus.CANCELLED) {
+                throw new BadRequestException("Không thể chuyển sang status CANCELLED! Đợt thực tập này đã kết thúc từ ngày "
+                        + endDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " rồi.");
+
+            }
+        }
+
         if (oldStatus == newStatus) {
-            throw new BadRequestException("Phân công thực tập này đã ở trạng thái " + oldStatus + " rồi!");        }
+            return null;
+        }
 
         if (oldStatus == InternshipAssignmentsStatus.COMPLETED || oldStatus == InternshipAssignmentsStatus.CANCELLED) {
             throw new BadRequestException("Phân công thực tập này đã kết thúc với trạng thái " + oldStatus + ", không thể chỉnh sửa nữa!");
@@ -866,15 +892,25 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
             }
         }
 
+        boolean hasResult = assignment.getAssessmentResults() != null
+                && !assignment.getAssessmentResults().isEmpty();
+
         if (newStatus == InternshipAssignmentsStatus.COMPLETED) {
-            boolean hasResult = assignment.getAssessmentResults() != null
-                    && !assignment.getAssessmentResults().isEmpty();
 
             if (!hasResult) {
                 throw new BadRequestException(
                         "Không thể sửa status thành COMPLETED. Phân công thực tập ID = " + id + " chưa có kết quả đánh giá!");
             }
         }
+
+        if (newStatus == InternshipAssignmentsStatus.CANCELLED) {
+
+            if (hasResult) {
+                throw new BadRequestException(
+                        "Không thể sửa status thành CANCELLED. Phân công thực tập ID = " + id + " hệ thống ghi nhận đã có kết quả đánh giá rồi!");
+            }
+        }
+
 
 //        assignment.setStatus(request.getStatus());
         internshipAssignmentMapper.updateStatusFromDto(request, assignment);
@@ -887,7 +923,7 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
     }
 
     @Override
-    public InternshipAssignmentResponse deleteAssignment(Long id) {
+    public void deleteAssignment(Long id) {
 
         InternshipAssignment assignment =
                 internshipAssignmentRepository.findById(id)
@@ -924,11 +960,7 @@ public class InternshipAssignmentServiceImpl implements InternshipAssignmentServ
                             + " vì đã liên kết với AssessmentResult");
         }
 
-        InternshipAssignmentResponse response =
-                internshipAssignmentMapper.toResponse(assignment);
-
         internshipAssignmentRepository.delete(assignment);
 
-        return response;
     }
 }

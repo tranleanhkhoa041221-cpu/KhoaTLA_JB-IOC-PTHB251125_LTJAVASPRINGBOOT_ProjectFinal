@@ -21,6 +21,6 @@ public interface InternshipPhaseService {
     InternshipPhaseResponse updatePhase
             (Long id, InternshipPhaseUpdateRequest request);
 
-    InternshipPhaseResponse deletePhase(Long id);
+    void deletePhase(Long id);
 
 }

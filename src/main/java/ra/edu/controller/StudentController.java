@@ -2,7 +2,6 @@ package ra.edu.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,9 +9,9 @@ import ra.edu.dto.request.StudentCreateRequest;
 import ra.edu.dto.request.StudentFilterRequest;
 import ra.edu.dto.request.StudentUpdateRequest;
 import ra.edu.dto.response.ApiResponse;
+import ra.edu.dto.response.StudentResponse;
 import ra.edu.service.StudentService;
 
-import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/students")
@@ -22,7 +21,7 @@ public class StudentController {
     private final StudentService studentService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<?>> getAll(
+    public ResponseEntity<?> getAll(
             @Valid @ModelAttribute StudentFilterRequest filter) {
 
         return ResponseEntity.ok(
@@ -31,7 +30,7 @@ public class StudentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> getById(@PathVariable Long id) {
+    public ResponseEntity<?> getById(@PathVariable Long id) {
 
         return ResponseEntity.ok(
                 ApiResponse.success("Lấy thông tin chi tiết sinh viên thành công",
@@ -39,7 +38,7 @@ public class StudentController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<?>> create(
+    public ResponseEntity<?> create(
             @Valid @RequestBody StudentCreateRequest request) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -48,12 +47,17 @@ public class StudentController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> update(
+    public ResponseEntity<?> update(
             @PathVariable Long id,
             @Valid @RequestBody StudentUpdateRequest request) {
 
+        StudentResponse response = studentService.updateStudent(id, request);
+
+        if (response == null) {
+            return ResponseEntity.noContent().build();
+        }
+
         return ResponseEntity.ok(
-                ApiResponse.success("Cập nhật sinh viên thành công",
-                        studentService.updateStudent(id, request)));
+                ApiResponse.success("Cập nhật sinh viên thành công", response));
     }
 }

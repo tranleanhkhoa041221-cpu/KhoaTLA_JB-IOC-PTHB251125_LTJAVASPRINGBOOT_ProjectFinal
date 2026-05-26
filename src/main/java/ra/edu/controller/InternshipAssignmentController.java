@@ -10,6 +10,7 @@ import ra.edu.dto.request.InternshipAssignmentFilterRequest;
 import ra.edu.dto.request.InternshipAssignmentUpdateRequest;
 import ra.edu.dto.request.InternshipAssignmentUpdateStatusRequest;
 import ra.edu.dto.response.ApiResponse;
+import ra.edu.dto.response.InternshipAssignmentResponse;
 import ra.edu.service.InternshipAssignmentService;
 
 
@@ -21,7 +22,7 @@ public class InternshipAssignmentController {
     private final InternshipAssignmentService internshipAssignmentService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<?>> getAllAssignments(
+    public ResponseEntity<?> getAllAssignments(
             @Valid @ModelAttribute InternshipAssignmentFilterRequest filter) {
 
         return ResponseEntity.ok(
@@ -31,7 +32,7 @@ public class InternshipAssignmentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> getAssignmentById(
+    public ResponseEntity<?> getAssignmentById(
             @PathVariable Long id) {
 
         return ResponseEntity.ok(
@@ -41,7 +42,7 @@ public class InternshipAssignmentController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<?>> createAssignment(
+    public ResponseEntity<?> createAssignment(
             @Valid
             @RequestBody
             InternshipAssignmentCreateRequest request) {
@@ -55,36 +56,45 @@ public class InternshipAssignmentController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> updateAssignment(
+    public ResponseEntity<?> updateAssignment(
             @PathVariable Long id,
             @Valid @RequestBody InternshipAssignmentUpdateRequest request) {
+
+        InternshipAssignmentResponse response = internshipAssignmentService.updateAssignment(id, request);
+
+        if (response == null) {
+            return ResponseEntity.noContent().build();
+        }
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Cập nhật phân công thực tập thành công",
-                        internshipAssignmentService
-                                .updateAssignment(id, request)));
+                        response));
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<ApiResponse<?>> updateAssignmentStatus(
+    public ResponseEntity<?> updateAssignmentStatus(
             @PathVariable Long id,
             @Valid @RequestBody InternshipAssignmentUpdateStatusRequest request) {
+
+        InternshipAssignmentResponse response = internshipAssignmentService.updateAssignmentStatus(id, request);
+
+        if (response == null) {
+            return ResponseEntity.noContent().build();
+        }
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Cập nhật trạng thái phân công thực tập thành công",
-                        internshipAssignmentService
-                                .updateAssignmentStatus(id, request)));
+                        response));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<?>> deleteAssignment(
+    public ResponseEntity<?> deleteAssignment(
             @PathVariable Long id) {
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Xóa phân công thực tập thành công",
-                        internshipAssignmentService.deleteAssignment(id)));
+        internshipAssignmentService.deleteAssignment(id);
+
+        return ResponseEntity.noContent().build();
     }
 }
