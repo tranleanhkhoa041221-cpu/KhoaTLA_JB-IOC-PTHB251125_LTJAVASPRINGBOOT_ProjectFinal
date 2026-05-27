@@ -105,6 +105,8 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.PUT, "/api/assessment-rounds/*").hasRole("ADMIN")
 
+                        .requestMatchers(HttpMethod.PATCH, "/api/assessment-rounds/*/status").hasRole("ADMIN")
+
                         .requestMatchers(HttpMethod.DELETE, "/api/assessment-rounds/*").hasRole("ADMIN")
 
                         // Round Criteria
@@ -127,7 +129,9 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.POST, "/api/internship-assignments").hasRole("ADMIN")
 
-                        .requestMatchers(HttpMethod.PUT, "/api/internship-assignments/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/internship-assignments/*").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.PATCH, "/api/internship-assignments/*/status").hasRole("ADMIN")
 
                         .requestMatchers(HttpMethod.DELETE, "/api/internship-assignments/*").hasRole("ADMIN")
 
