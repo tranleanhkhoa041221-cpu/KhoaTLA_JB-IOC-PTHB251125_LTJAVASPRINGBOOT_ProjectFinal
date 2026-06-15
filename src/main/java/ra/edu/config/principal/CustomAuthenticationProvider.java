@@ -11,6 +11,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import ra.edu.entity.User;
+import ra.edu.exception.BadRequestException;
 import ra.edu.repository.UserRepository;
 
 @Component
@@ -26,14 +27,14 @@ public class CustomAuthenticationProvider implements AuthenticationProvider {
         User user = userRepo.findByUsername(input)
                 .or(() -> userRepo.findByEmail(input))
                 .or(() -> userRepo.findByPhoneNumber(input))
-                .orElseThrow(() -> new BadCredentialsException("Sai thông tin đăng nhập"));
+                .orElseThrow(() -> new BadRequestException("Sai thông tin đăng nhập"));
 
         if (!user.getIsActive()) {
             throw new DisabledException("Tài khoản đã bị vô hiệu hóa");
         }
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new BadCredentialsException("Sai thông tin đăng nhập");
+            throw new BadRequestException("Sai thông tin đăng nhập");
         }
 
         UserPrincipal principal = new UserPrincipal(user);

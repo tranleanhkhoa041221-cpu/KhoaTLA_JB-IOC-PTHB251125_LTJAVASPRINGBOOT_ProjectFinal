@@ -2,6 +2,7 @@ package ra.edu.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public UserResponse getCurrentUser(Authentication auth) {
+
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new BadCredentialsException("Unauthorized");
+        }
 
         UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
 
